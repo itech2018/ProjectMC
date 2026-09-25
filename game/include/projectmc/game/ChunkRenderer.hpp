@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL3/SDL.h>
 #include "projectmc/world/Chunk.hpp"
+#include "projectmc/world/ChunkPosition.hpp"
 #include "projectmc/world/BlockRegistry.hpp"
 #include "projectmc/game/Camera.hpp"
 #include "projectmc/game/TextureAtlas.hpp"
