@@ -7,7 +7,7 @@ namespace projectmc::world {
 class BlockRegistry {
 public:
   BlockRegistry();
-  BlockId registerBlock(std::string name, BlockMaterial material, bool solid, bool transparent);
+  BlockId registerBlock(std::string name, BlockMaterial material, bool solid, bool transparent, BlockTextures textures = {});
   [[nodiscard]] const BlockDefinition& get(BlockId id) const;
   [[nodiscard]] const BlockDefinition& get(std::string_view name) const;
   [[nodiscard]] BlockId id(std::string_view name) const;
