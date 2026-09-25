@@ -6,6 +6,7 @@
 #include "projectmc/game/ChunkRenderer.hpp"
 #include "projectmc/game/Player.hpp"
 #include "projectmc/game/Raycast.hpp"
+#include "projectmc/game/TextureAtlas.hpp"
 #include "projectmc/world/World.hpp"
 namespace projectmc::game {
 class Application {
@@ -16,7 +17,7 @@ public:
 private:
  void processEvents();void update(double dt);void render();void interact(bool place);
  projectmc::GameConfig config_;SDL_Window* window_{nullptr};SDL_Renderer* renderer_{nullptr};
- InputState input_{};Camera camera_{};Player player_{};ChunkRenderer chunkRenderer_{};world::World world_{};
+ InputState input_{};Camera camera_{};Player player_{};TextureAtlas atlas_{};ChunkRenderer chunkRenderer_{};world::World world_{};
  world::BlockId selectedBlock_{1};
   int selectedSlot_{0};
   bool running_{false};
