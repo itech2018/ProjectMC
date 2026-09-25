@@ -9,6 +9,7 @@ FetchContent_MakeAvailable(SDL3)
 add_executable(projectmc-game
   src/main.cpp
   src/Application.cpp
+  src/ChunkRenderer.cpp
 )
 target_include_directories(projectmc-game PRIVATE include)
 target_link_libraries(projectmc-game PRIVATE projectmc-shared SDL3::SDL3)
