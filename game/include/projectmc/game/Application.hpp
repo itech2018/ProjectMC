@@ -2,6 +2,9 @@
 #include <SDL3/SDL.h>
 #include "projectmc/Config.hpp"
 #include "projectmc/game/Input.hpp"
+#include "projectmc/game/Camera.hpp"
+#include "projectmc/game/ChunkRenderer.hpp"
+#include "projectmc/world/World.hpp"
 namespace projectmc::game {
 class Application {
 public:
@@ -19,6 +22,9 @@ private:
   SDL_Window* window_{nullptr};
   SDL_Renderer* renderer_{nullptr};
   InputState input_{};
+  Camera camera_{};
+  ChunkRenderer chunkRenderer_{};
+  world::World world_{};
   bool running_{false};
 };
 }
