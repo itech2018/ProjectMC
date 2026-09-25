@@ -8,7 +8,15 @@ namespace projectmc::game {
 namespace {constexpr float pi=3.14159265358979323846f;struct P3{float x,y,z;};}
 ChunkRenderer::Point ChunkRenderer::project(float x,float y,float z,const Camera&c,int w,int h)const{
  x-=c.position.x;y-=c.position.y;z-=c.position.z;float yaw=c.yaw*pi/180,pitch=c.pitch*pi/180,cy=std::cos(yaw),sy=std::sin(yaw);
- float rx=cy*x+sy*z,rz=-sy*x+cy*z,cp=std::cos(pitch),sp=std::sin(pitch),ry=cp*y-sp*rz,dz=sp*y+cp*rz;if(dz<=.05f)return{};
+ // Camera convention shared with Player/Raycast: yaw -90 faces -Z, positive mouse X turns right.
+ float forwardX=std::cos(yaw),forwardZ=std::sin(yaw);
+ float rightX=-forwardZ,rightZ=forwardX;
+ float rx=x*rightX+z*rightZ;
+ float horizontal=x*forwardX+z*forwardZ;
+ float cp=std::cos(pitch),sp=std::sin(pitch);
+ float ry=y*cp-horizontal*sp;
+ float dz=y*sp+horizontal*cp;
+ if(dz<=.05f)return{};
  float f=(h*.5f)/std::tan(c.fieldOfView*pi/360);return{w*.5f+rx*f/dz,h*.5f-ry*f/dz,true};
 }
 void ChunkRenderer::render(SDL_Renderer*r,const world::Chunk&c,const world::ChunkPosition&pos,const world::BlockRegistry&reg,const TextureAtlas&atlas,const Camera&cam,int w,int h){
