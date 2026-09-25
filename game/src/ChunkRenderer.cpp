@@ -52,4 +52,10 @@ void ChunkRenderer::render(SDL_Renderer* r,const world::Chunk& c,const world::Bl
     for(int i=0;i<4;++i) SDL_RenderLine(r,f.p[i].x,f.p[i].y,f.p[(i+1)%4].x,f.p[(i+1)%4].y);
   }
 }
+void ChunkRenderer::renderSelection(SDL_Renderer* r,int x,int y,int z,const Camera& cam,int w,int h){
+ static constexpr int edges[12][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
+ static constexpr float c[8][3]={{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}};
+ Point p[8];for(int i=0;i<8;++i)p[i]=project(x+c[i][0],y+c[i][1],z+c[i][2],cam,w,h);
+ SDL_SetRenderDrawColor(r,255,255,255,255);for(auto&e:edges)if(p[e[0]].valid&&p[e[1]].valid)SDL_RenderLine(r,p[e[0]].x,p[e[0]].y,p[e[1]].x,p[e[1]].y);
+}
 }
