@@ -17,6 +17,8 @@ private:
  void processEvents();void update(double dt);void render();void interact(bool place);
  projectmc::GameConfig config_;SDL_Window* window_{nullptr};SDL_Renderer* renderer_{nullptr};
  InputState input_{};Camera camera_{};Player player_{};ChunkRenderer chunkRenderer_{};world::World world_{};
- bool running_{false};
+ world::BlockId selectedBlock_{1};
+  int selectedSlot_{0};
+  bool running_{false};
 };
 }
