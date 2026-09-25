@@ -11,7 +11,7 @@ bool Application::initialize(){
  if(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS)){projectmc::log(projectmc::LogLevel::Error,SDL_GetError());return false;}
  SDL_WindowFlags f=SDL_WINDOW_RESIZABLE;if(config_.fullscreen)f|=SDL_WINDOW_FULLSCREEN;
  window_=SDL_CreateWindow(config_.title.c_str(),config_.width,config_.height,f);if(!window_)return false;
- renderer_=SDL_CreateRenderer(window_,nullptr);if(!renderer_)return false;SDL_SetRenderVSync(renderer_,config_.vsync?1:0);
+ renderer_=SDL_CreateRenderer(window_,nullptr);if(!renderer_)return false;SDL_SetRenderVSync(renderer_,config_.vsync?1:0);if(!atlas_.create(renderer_)){projectmc::log(projectmc::LogLevel::Error,"Failed to create block texture atlas");return false;}
  SDL_SetWindowRelativeMouseMode(window_,true);world_.generateTestWorld();running_=true;return true;
 }
 void Application::processEvents(){
