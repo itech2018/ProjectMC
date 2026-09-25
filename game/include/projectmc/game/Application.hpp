@@ -8,23 +8,13 @@
 namespace projectmc::game {
 class Application {
 public:
-  explicit Application(projectmc::GameConfig config);
-  ~Application();
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
-  bool initialize();
-  int run();
+ explicit Application(projectmc::GameConfig config);~Application();
+ Application(const Application&)=delete;Application& operator=(const Application&)=delete;
+ bool initialize();int run();
 private:
-  void processEvents();
-  void update(double deltaSeconds);
-  void render();
-  projectmc::GameConfig config_;
-  SDL_Window* window_{nullptr};
-  SDL_Renderer* renderer_{nullptr};
-  InputState input_{};
-  Camera camera_{};
-  ChunkRenderer chunkRenderer_{};
-  world::World world_{};
-  bool running_{false};
+ void processEvents();void update(double dt);void render();void interact(bool place);
+ projectmc::GameConfig config_;SDL_Window* window_{nullptr};SDL_Renderer* renderer_{nullptr};
+ InputState input_{};Camera camera_{};ChunkRenderer chunkRenderer_{};world::World world_{};
+ bool running_{false};
 };
 }
