@@ -162,6 +162,7 @@ void Application::render(){
   SDL_GetWindowSizeInPixels(window_,&w,&h);
   gpu->beginFrame(camera_);
   chunkRenderer_.renderGpuWorld(*gpu,camera_,w,h);
+  gpu->drawHud();
   gpu->endFrame();
   return;
  }
