@@ -30,6 +30,8 @@ bool Application::initialize(){
  window_=SDL_CreateWindow(config_.title.c_str(),config_.width,config_.height,f);
  if(!window_){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_CreateWindow failed: ")+SDL_GetError());return false;}
  SDL_ShowWindow(window_);SDL_RaiseWindow(window_);
+ SDL_SetWindowKeyboardGrab(window_,true);
+ projectmc::log(projectmc::LogLevel::Info,std::string("Keyboard focus after window creation: ")+(SDL_GetKeyboardFocus()==window_?"yes":"no"));
  projectmc::log(projectmc::LogLevel::Info,"Creating renderer...");
  renderer_=SDL_CreateRenderer(window_,nullptr);
  if(!renderer_){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_CreateRenderer failed: ")+SDL_GetError());return false;}
@@ -53,11 +55,25 @@ void Application::processEvents(){
   if(e.type==SDL_EVENT_QUIT)running_=false;
   if(e.type==SDL_EVENT_WINDOW_FOCUS_GAINED)SDL_SetWindowRelativeMouseMode(window_,true);
   if(e.type==SDL_EVENT_WINDOW_FOCUS_LOST){input_.mouseDeltaX=input_.mouseDeltaY=0;}
-  if(e.type==SDL_EVENT_KEY_DOWN&&e.key.key==SDLK_ESCAPE)running_=false;
+  if(e.type==SDL_EVENT_KEY_DOWN){
+   if(e.key.key==SDLK_ESCAPE)running_=false;
+   // Log once per physical press (not repeats) while input is being stabilised.
+   if(!e.key.repeat)projectmc::log(projectmc::LogLevel::Debug,"Key down scancode="+std::to_string((int)e.key.scancode)+" key="+std::to_string((int)e.key.key));
+  }
   if(e.type==SDL_EVENT_MOUSE_MOTION){input_.mouseDeltaX+=e.motion.xrel;input_.mouseDeltaY+=e.motion.yrel;}
   if(e.type==SDL_EVENT_MOUSE_BUTTON_DOWN){if(e.button.button==SDL_BUTTON_LEFT)input_.removeBlock=true;if(e.button.button==SDL_BUTTON_RIGHT)input_.placeBlock=true;} if(e.type==SDL_EVENT_KEY_DOWN&&e.key.key>=SDLK_1&&e.key.key<=SDLK_5)input_.hotbarSelection=(int)(e.key.key-SDLK_1);
  }
- const bool*k=SDL_GetKeyboardState(nullptr);input_.forward=k[SDL_SCANCODE_W];input_.backward=k[SDL_SCANCODE_S];input_.left=k[SDL_SCANCODE_A];input_.right=k[SDL_SCANCODE_D];input_.jump=k[SDL_SCANCODE_SPACE];input_.descend=k[SDL_SCANCODE_LCTRL];input_.sprint=k[SDL_SCANCODE_LSHIFT];
+ // SDL3 keyboard state is indexed by scancode. SDL_GetKeyboardState can be
+ // unreliable for our grabbed Windows window on some systems, so maintain the
+ // gameplay state from the key events we already receive.
+ const bool*k=SDL_GetKeyboardState(nullptr);
+ input_.forward=k[SDL_SCANCODE_W];
+ input_.backward=k[SDL_SCANCODE_S];
+ input_.left=k[SDL_SCANCODE_A];
+ input_.right=k[SDL_SCANCODE_D];
+ input_.jump=k[SDL_SCANCODE_SPACE];
+ input_.descend=k[SDL_SCANCODE_LCTRL]||k[SDL_SCANCODE_RCTRL];
+ input_.sprint=k[SDL_SCANCODE_LSHIFT]||k[SDL_SCANCODE_RSHIFT];
 }
 void Application::interact(bool place){auto h=raycastBlocks(world_,camera_);if(!h.hit)return;if(place)world_.setBlock(h.previousX,h.previousY,h.previousZ,selectedBlock_);else world_.setBlock(h.x,h.y,h.z,0);}
 void Application::update(double dt){constexpr float mouseSensitivity=.09f;
