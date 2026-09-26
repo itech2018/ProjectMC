@@ -8,7 +8,14 @@
 namespace projectmc::game {
 constexpr float PI=3.14159265358979323846f;
 Application::Application(projectmc::GameConfig c):config_(std::move(c)){}
-Application::~Application(){if(renderer_)SDL_DestroyRenderer(renderer_);if(window_)SDL_DestroyWindow(window_);SDL_Quit();}
+Application::~Application(){
+ if(auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get()))
+  chunkRenderer_.releaseGpuMeshes(*gpu);
+ renderBackend_.reset();
+ if(renderer_){SDL_DestroyRenderer(renderer_);renderer_=nullptr;}
+ if(window_){SDL_DestroyWindow(window_);window_=nullptr;}
+ SDL_Quit();
+}
 bool Application::initialize(){
  projectmc::log(projectmc::LogLevel::Info,"Preparing SDL video...");
 #ifdef _WIN32
@@ -33,13 +40,13 @@ bool Application::initialize(){
  if(!window_){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_CreateWindow failed: ")+SDL_GetError());return false;}
  SDL_ShowWindow(window_);SDL_RaiseWindow(window_);
  projectmc::log(projectmc::LogLevel::Info,std::string("Keyboard focus after window creation: ")+(SDL_GetKeyboardFocus()==window_?"yes":"no"));
- const char* gpuTest=SDL_getenv("PROJECTMC_GPU_RENDERER");
- gpuTestMode_=gpuTest&&std::string(gpuTest)=="1";
- if(gpuTestMode_){
-  projectmc::log(projectmc::LogLevel::Info,"PROJECTMC_GPU_RENDERER=1 - starting experimental SDL_GPU renderer.");
+ const char* compatibility=SDL_getenv("PROJECTMC_COMPAT_RENDERER");
+ gpuMode_=!(compatibility&&std::string(compatibility)=="1");
+ if(gpuMode_){
+  projectmc::log(projectmc::LogLevel::Info,"Starting primary SDL_GPU renderer.");
   auto gpu=std::make_unique<GpuRenderBackend>();
   if(!gpu->initialize(window_)){
-   projectmc::log(projectmc::LogLevel::Error,"Experimental GPU renderer initialisation failed.");
+   projectmc::log(projectmc::LogLevel::Error,"SDL_GPU renderer initialisation failed. Set PROJECTMC_COMPAT_RENDERER=1 to use the compatibility renderer.");
    return false;
   }
   renderBackend_=std::move(gpu);
@@ -54,7 +61,7 @@ bool Application::initialize(){
  }
  projectmc::log(projectmc::LogLevel::Info,std::string("Render backend: ")+renderBackend_->name());
  projectmc::log(projectmc::LogLevel::Info,"Creating texture atlas...");
- if(gpuTestMode_){
+ if(gpuMode_){
   if(!atlas_.createCpu()){projectmc::log(projectmc::LogLevel::Error,"CPU texture atlas generation failed.");return false;}
   auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get());
   if(!gpu||!gpu->uploadAtlas(atlas_)){projectmc::log(projectmc::LogLevel::Error,std::string("GPU texture atlas upload failed: ")+SDL_GetError());return false;}
@@ -154,7 +161,7 @@ void Application::update(double dt){constexpr float mouseSensitivity=.09f;
  if(camera_.yaw<-180.0f)camera_.yaw+=360.0f;if(camera_.pitch>89)camera_.pitch=89;if(camera_.pitch<-89)camera_.pitch=-89;player_.update(dt,input_,world_,camera_.yaw);camera_.position=player_.eyePosition();world_.updateStreaming(player_.position.x,player_.position.z,2);if(input_.hotbarSelection>=0){selectedSlot_=input_.hotbarSelection;const char* names[5]={"stone","dirt","grass","sand","water"};selectedBlock_=world_.blocks().id(names[selectedSlot_]);}if(input_.removeBlock)interact(false);if(input_.placeBlock)interact(true);}
 void Application::render(){
  chunkRenderer_.syncMeshes(world_,atlas_);
- if(gpuTestMode_){
+ if(gpuMode_){
   auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get());
   if(!gpu) return;
   chunkRenderer_.syncGpuMeshes(*gpu);
