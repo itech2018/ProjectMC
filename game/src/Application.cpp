@@ -11,6 +11,11 @@ namespace projectmc::game {
 constexpr float PI=3.14159265358979323846f;
 Application::Application(projectmc::GameConfig c):config_(std::move(c)){}
 Application::~Application(){
+ if(world_.overrideCount()>0) {
+  if(world_.saveOverrides("saves/dev-world/world.pmc"))
+   projectmc::log(projectmc::LogLevel::Info,"Saved "+std::to_string(world_.overrideCount())+" world block override(s).");
+  else projectmc::log(projectmc::LogLevel::Warning,"Could not save world overrides.");
+ }
  if(auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get()))
   chunkRenderer_.releaseGpuMeshes(*gpu);
  renderBackend_.reset();
@@ -70,8 +75,13 @@ bool Application::initialize(){
  }else{
   if(!atlas_.create(renderer_)){projectmc::log(projectmc::LogLevel::Error,std::string("Texture atlas failed: ")+SDL_GetError());return false;}
  }
+ projectmc::log(projectmc::LogLevel::Info,"Loading development world...");
+ if(world_.loadOverrides("saves/dev-world/world.pmc"))
+  projectmc::log(projectmc::LogLevel::Info,"Loaded "+std::to_string(world_.overrideCount())+" saved block override(s).");
+ else
+  projectmc::log(projectmc::LogLevel::Info,"No existing development save found; starting fresh.");
  projectmc::log(projectmc::LogLevel::Info,"Generating spawn terrain...");
- world_.generateTerrain(2);
+ world_.generateTerrain(config_.viewDistance);
  // Pump the window once before grabbing the mouse. On Windows this avoids capturing
  // input while the SDL window is still being created/activated.
  SDL_PumpEvents();SDL_RaiseWindow(window_);
