@@ -1,15 +1,24 @@
+cbuffer HudData : register(b0, space1)
+{
+    float4 rects[12];   // xy=center, zw=half size in NDC
+    float4 colors[12];
+    uint rectCount;
+    float3 padding;
+};
+
 struct VSOutput { float4 position : SV_Position; float4 color : TEXCOORD0; };
 
 VSOutput main(uint vertexId : SV_VertexID)
 {
-    static const float2 p[12] = {
-        float2(-0.010, -0.0015), float2( 0.010, -0.0015), float2( 0.010,  0.0015),
-        float2(-0.010, -0.0015), float2( 0.010,  0.0015), float2(-0.010,  0.0015),
-        float2(-0.0015, -0.016), float2( 0.0015, -0.016), float2( 0.0015,  0.016),
-        float2(-0.0015, -0.016), float2( 0.0015,  0.016), float2(-0.0015,  0.016)
+    static const float2 corners[6] = {
+        float2(-1,-1), float2(1,-1), float2(1,1),
+        float2(-1,-1), float2(1,1), float2(-1,1)
     };
+    uint rectIndex=vertexId/6;
+    uint cornerIndex=vertexId%6;
     VSOutput o;
-    o.position = float4(p[vertexId], 0.0, 1.0);
-    o.color = float4(1.0, 1.0, 1.0, 1.0);
+    float4 r=rects[rectIndex];
+    o.position=float4(r.xy+corners[cornerIndex]*r.zw,0,1);
+    o.color=colors[rectIndex];
     return o;
 }
