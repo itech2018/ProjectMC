@@ -7,6 +7,13 @@ namespace projectmc::game {
 // Common lifecycle for ProjectMC world-rendering backends.
 // The current SDL renderer remains available while the depth-buffered GPU
 // backend is brought online incrementally.
+struct RenderCapabilities {
+ bool ownsPresentation{false};
+ bool depthBuffer{false};
+ bool gpuChunkBuffers{false};
+ bool transparentPass{false};
+};
+
 class RenderBackend {
 public:
  virtual ~RenderBackend() = default;
@@ -15,6 +22,7 @@ public:
  virtual void beginFrame(const Camera& camera) = 0;
  virtual void endFrame() = 0;
  [[nodiscard]] virtual const char* name() const noexcept = 0;
+ [[nodiscard]] virtual RenderCapabilities capabilities() const noexcept = 0;
 };
 
 }
