@@ -9,6 +9,8 @@
 #include "projectmc/game/TextureAtlas.hpp"
 #include "projectmc/game/RenderBackend.hpp"
 #include <memory>
+#include <filesystem>
+#include <string>
 #include "projectmc/world/World.hpp"
 namespace projectmc::game {
 class Application {
@@ -27,5 +29,7 @@ private:
   double fpsAccumulator_{0.0};
   int fpsFrames_{0};
   double displayedFps_{0.0};
+  std::filesystem::path worldPath_{};
+  std::string worldName_{"Development World"};
 };
 }
