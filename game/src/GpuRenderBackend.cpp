@@ -490,75 +490,47 @@ void GpuRenderBackend::drawHud(int selectedSlot) {
 }
 
 void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const std::string& worldName,const std::string& seedText,int listOffset) {
- if(!renderPass_||!hudPipeline_||!commandBuffer_) return;
- struct HudData { float rects[12][4]{};float colors[12][4]{};Uint32 rectCount{};float padding[3]{}; } data;
- auto add=[&](float cx,float cy,float hx,float hy,float r,float g,float b,float a){
-  if(data.rectCount>=12)return;const Uint32 i=data.rectCount++;
-  data.rects[i][0]=cx;data.rects[i][1]=cy;data.rects[i][2]=hx;data.rects[i][3]=hy;
-  data.colors[i][0]=r;data.colors[i][1]=g;data.colors[i][2]=b;data.colors[i][3]=a;
- };
- add(0,0,.43f,.62f,.08f,.10f,.13f,.94f);
- add(0,.43f,.27f,.055f,.24f,.55f,.82f,1.0f);
- if(screen==0) {
-  for(int i=0;i<2;++i){const float y=.12f-i*.20f;const bool selected=i==selectedIndex;add(0,y,.30f,.065f,selected?.32f:.18f,selected?.62f:.22f,selected?.88f:.28f,1);}
- } else if(screen==1) {
-  const int visible=std::min(5,std::max(0,itemCount-listOffset));for(int row=0;row<visible;++row){const int i=listOffset+row;const float y=.22f-row*.13f;const bool selected=i==selectedIndex;add(0,y,.34f,.045f,selected?.32f:.18f,selected?.62f:.22f,selected?.88f:.28f,1);}
-  const int action=selectedIndex-itemCount;
-  add(-.27f,-.47f,.075f,.05f,action==0?.32f:.20f,action==0?.62f:.48f,action==0?.88f:.72f,1);
-  add(-.09f,-.47f,.075f,.05f,action==1?.32f:.22f,action==1?.62f:.40f,action==1?.88f:.62f,1);
-  add(.09f,-.47f,.075f,.05f,action==2?.55f:.38f,action==2?.25f:.18f,action==2?.25f:.18f,1);
-  add(.27f,-.47f,.075f,.05f,action==3?.32f:.25f,action==3?.62f:.28f,action==3?.88f:.32f,1);
- } else if(screen==2) {
-  add(0,.18f,.34f,.05f,selectedIndex==0?.32f:.16f,selectedIndex==0?.62f:.19f,selectedIndex==0?.88f:.24f,1);
-  add(0,.03f,.34f,.05f,selectedIndex==1?.32f:.16f,selectedIndex==1?.62f:.19f,selectedIndex==1?.88f:.24f,1);
-  add(-.18f,-.47f,.15f,.055f,selectedIndex==2?.32f:.20f,selectedIndex==2?.62f:.48f,selectedIndex==2?.88f:.72f,1);
-  add(.18f,-.47f,.15f,.055f,selectedIndex==3?.32f:.25f,selectedIndex==3?.62f:.28f,selectedIndex==3?.88f:.32f,1);
- }
- SDL_PushGPUVertexUniformData(commandBuffer_,0,&data,sizeof(data));
- SDL_BindGPUGraphicsPipeline(renderPass_,hudPipeline_);
- SDL_DrawGPUPrimitives(renderPass_,data.rectCount*6,1,0,0);
-
- // First text pass: draw a compact 5x7 bitmap font as tiny HUD rectangles.
- // This deliberately shares the existing HUD pipeline, so menus gain readable
- // text without adding a texture/font dependency or another shader pipeline.
+ if(!renderPass_||!hudPipeline_||!commandBuffer_)return;
+ struct HudData{float rects[12][4]{};float colors[12][4]{};Uint32 rectCount{};float padding[3]{};};
+ auto flush=[&](HudData& d){if(!d.rectCount)return;SDL_PushGPUVertexUniformData(commandBuffer_,0,&d,sizeof(d));SDL_BindGPUGraphicsPipeline(renderPass_,hudPipeline_);SDL_DrawGPUPrimitives(renderPass_,d.rectCount*6,1,0,0);d={};};
+ HudData data{};
+ auto add=[&](float cx,float cy,float hx,float hy,float r,float g,float b,float alpha){if(data.rectCount==12)flush(data);auto i=data.rectCount++;data.rects[i][0]=cx;data.rects[i][1]=cy;data.rects[i][2]=hx;data.rects[i][3]=hy;data.colors[i][0]=r;data.colors[i][1]=g;data.colors[i][2]=b;data.colors[i][3]=alpha;};
+ add(0,0,.58f,.72f,.08f,.10f,.13f,.96f);add(0,.54f,.34f,.065f,.24f,.55f,.82f,1);
+ if(screen==0){add(0,.12f,.32f,.065f,.22f,.50f,.76f,1);add(0,-.08f,.32f,.065f,.20f,.23f,.28f,1);}
+ else if(screen==1){
+  const int visible=std::min(5,std::max(0,itemCount-listOffset));
+  for(int row=0;row<visible;++row){int i=listOffset+row;float y=.31f-row*.13f;bool s=i==selectedIndex;add(0,y,.48f,.05f,s?.25f:.15f,s?.52f:.19f,s?.78f:.25f,1);}
+  int action=selectedIndex-itemCount;
+  add(-.25f,-.39f,.19f,.05f,action==0?.28f:.18f,action==0?.58f:.42f,action==0?.84f:.62f,1);
+  add(.25f,-.39f,.19f,.05f,action==1?.28f:.18f,action==1?.58f:.35f,action==1?.84f:.52f,1);
+  add(-.25f,-.53f,.19f,.05f,action==2?.55f:.34f,action==2?.24f:.17f,action==2?.24f:.17f,1);
+  add(.25f,-.53f,.19f,.05f,action==3?.32f:.20f,action==3?.36f:.23f,action==3?.42f:.28f,1);
+ }else if(screen==2){add(0,.20f,.44f,.055f,.16f,.21f,.28f,1);add(0,.04f,.44f,.055f,.16f,.21f,.28f,1);add(-.23f,-.48f,.19f,.055f,.20f,.48f,.72f,1);add(.23f,-.48f,.19f,.055f,.25f,.28f,.32f,1);}
+ else if(screen==3){add(0,.16f,.44f,.055f,.16f,.21f,.28f,1);add(-.23f,-.48f,.19f,.055f,.20f,.48f,.72f,1);add(.23f,-.48f,.19f,.055f,.25f,.28f,.32f,1);}
+ else {add(0,.12f,.44f,.065f,.20f,.18f,.18f,1);add(-.23f,-.48f,.19f,.055f,.50f,.18f,.18f,1);add(.23f,-.48f,.19f,.055f,.25f,.28f,.32f,1);}
+ flush(data);
  static const std::pair<char,const char*> glyphs[]={
-  {'A',"011101000110001111111000110001"},{'B',"111101000111110100011000111110"},
-  {'C',"011111000010000100001000001111"},{'D',"111101000110001100011000111110"},
-  {'E',"111111000011110100001000011111"},{'F',"111111000011110100001000010000"},
-  {'G',"011111000010111100011000101110"},{'H',"100011000111111100011000110001"},
-  {'I',"111110010000100001000010011111"},
-  {'L',"100001000010000100001000011111"},{'M',"100011101110101101011000110001"},
-  {'N',"100011100110101100111000110001"},{'O',"011101000110001100011000101110"},
-  {'P',"111101000110001111101000010000"},{'Q',"011101000110001101011001001101"},
-  {'R',"111101000110001111101010010001"},{'S',"011111000001110000010000111110"},
-  {'T',"111110010000100001000010000100"},{'U',"100011000110001100011000101110"},
-  {'W',"100011000110101101011010101010"},{'Y',"100011000101010001000010000100"},
-  {'J',"001110001000010000101001001100"},{'K',"100011001011100100101000110001"},
-  {'V',"100011000110001100010101000100"},{'X',"100011000101010001001010110001"},
-  {'Z',"111110000100010001000100011111"},
-  {'0',"011101000110011101011100101110"},{'1',"001000110000100001000010001110"},
-  {'2',"011101000100001001100100011111"},{'3',"111100000100110000011000111110"},
-  {'4',"100011000111111000010000100001"},{'5',"111111000011110000011000111110"},
-  {'6',"011111000011110100011000101110"},{'7',"111110000100010001000100001000"},
-  {'8',"011101000101110100011000101110"},{'9',"011101000110001011110000111110"},
-  {'-',"000000000000000111110000000000"},{':',"000000010000000000000100000000"}
+ {'A',"011101000110001111111000110001"},{'B',"111101000111110100011000111110"},{'C',"011111000010000100001000001111"},{'D',"111101000110001100011000111110"},
+ {'E',"111111000011110100001000011111"},{'F',"111111000011110100001000010000"},{'G',"011111000010111100011000101110"},{'H',"100011000111111100011000110001"},
+ {'I',"111110010000100001000010011111"},{'J',"001110001000010000101001001100"},{'K',"100011001011100100101000110001"},{'L',"100001000010000100001000011111"},
+ {'M',"100011101110101101011000110001"},{'N',"100011100110101100111000110001"},{'O',"011101000110001100011000101110"},{'P',"111101000110001111101000010000"},
+ {'Q',"011101000110001101011001001101"},{'R',"111101000110001111101010010001"},{'S',"011111000001110000010000111110"},{'T',"111110010000100001000010000100"},
+ {'U',"100011000110001100011000101110"},{'V',"100011000110001100010101000100"},{'W',"100011000110101101011010101010"},{'X',"100011000101010001001010110001"},
+ {'Y',"100011000101010001000010000100"},{'Z',"111110000100010001000100011111"},
+ {'0',"011101000110011101011100101110"},{'1',"001000110000100001000010001110"},{'2',"011101000100001001100100011111"},{'3',"111100000100110000011000111110"},
+ {'4',"100011000111111000010000100001"},{'5',"111111000011110000011000111110"},{'6',"011111000011110100011000101110"},{'7',"111110000100010001000100001000"},
+ {'8',"011101000101110100011000101110"},{'9',"011101000110001011110000111110"},{'-',"000000000000000111110000000000"},{':',"000000010000000000000100000000"}};
+ auto bits=[&](char ch)->const char*{ch=(char)std::toupper((unsigned char)ch);for(auto&g:glyphs)if(g.first==ch)return g.second;return nullptr;};
+ auto drawText=[&](std::string text,float cx,float cy,float scale){
+  const float width=text.empty()?0:(text.size()*6-1)*scale;float x=cx-width*.5f;
+  for(char ch:text){if(const char*p=bits(ch)){for(int row=0;row<6;++row)for(int col=0;col<5;++col)if(p[row*5+col]=='1')add(x+col*scale,cy+(2.5f-row)*scale,scale*.43f,scale*.43f,1,1,1,1);}x+=6*scale;}flush(data);
  };
- auto bits=[&](char ch)->const char*{ch=(char)std::toupper((unsigned char)ch);for(const auto& g:glyphs)if(g.first==ch)return g.second;return nullptr;};
- auto textWidth=[](const std::string&s,float scale){return s.empty()?0.0f:(float)s.size()*6.0f*scale-scale;};
- auto drawText=[&](std::string text,float cx,float cy,float scale,float r,float g,float b){
-  float x=cx-textWidth(text,scale)*.5f;
-  for(char ch:text){const char* p=bits(ch);if(p)for(int row=0;row<6;++row)for(int col=0;col<5;++col)if(p[row*5+col]=='1'){
-    HudData d{};d.rectCount=1;d.rects[0][0]=x+col*scale;d.rects[0][1]=cy-row*scale;
-    d.rects[0][2]=scale*.48f;d.rects[0][3]=scale*.48f;d.colors[0][0]=r;d.colors[0][1]=g;d.colors[0][2]=b;d.colors[0][3]=1;
-    SDL_PushGPUVertexUniformData(commandBuffer_,0,&d,sizeof(d));SDL_BindGPUGraphicsPipeline(renderPass_,hudPipeline_);SDL_DrawGPUPrimitives(renderPass_,6,1,0,0);
-   }x+=6*scale;}
- };
- drawText("PROJECTMC",0,.455f,.012f,1,1,1);
- if(screen==0){drawText("SINGLEPLAYER",0,.135f,.008f,1,1,1);drawText("QUIT",0,-.065f,.008f,1,1,1);}
- else if(screen==1){drawText("SINGLEPLAYER",0,.36f,.009f,1,1,1);std::string shown=worldName.empty()?"SELECT WORLD":worldName;if(shown.size()>24)shown.resize(24);drawText(shown,0,.31f,.0065f,1,1,1);drawText("CREATE",-.27f,-.455f,.0055f,1,1,1);drawText("RENAME",-.09f,-.455f,.0052f,1,1,1);drawText("DELETE",.09f,-.455f,.0052f,1,1,1);drawText("BACK",.27f,-.455f,.0058f,1,1,1);}
- else if(screen==2){drawText("CREATE WORLD",0,.36f,.009f,1,1,1);drawText("NAME",-.27f,.20f,.006f,1,1,1);drawText(worldName,0,.19f,.0065f,1,1,1);drawText("SEED",-.27f,.05f,.006f,1,1,1);drawText(seedText.empty()?"RANDOM":seedText,0,.04f,.0065f,1,1,1);drawText("CREATE",-.18f,-.455f,.0065f,1,1,1);drawText("CANCEL",.18f,-.455f,.0065f,1,1,1);}
- else if(screen==3){drawText("RENAME WORLD",0,.36f,.009f,1,1,1);drawText("NAME",-.27f,.20f,.006f,1,1,1);drawText(worldName,0,.19f,.0065f,1,1,1);drawText("SAVE",-.18f,-.455f,.007f,1,1,1);drawText("CANCEL",.18f,-.455f,.0065f,1,1,1);}
- else {drawText("DELETE WORLD",0,.36f,.009f,1,1,1);drawText(worldName,0,.12f,.007f,1,1,1);drawText("DELETE",-.18f,-.455f,.0065f,1,1,1);drawText("CANCEL",.18f,-.455f,.0065f,1,1,1);}
+ drawText("PROJECTMC",0,.55f,.012f);
+ if(screen==0){drawText("SINGLEPLAYER",0,.12f,.009f);drawText("QUIT",0,-.08f,.009f);}
+ else if(screen==1){drawText("SINGLEPLAYER",0,.445f,.009f);std::string n=worldName.empty()?"SELECT A WORLD":worldName;if(n.size()>28)n.resize(28);drawText(n,0,.31f,.007f);drawText("CREATE",-.25f,-.39f,.007f);drawText("RENAME",.25f,-.39f,.007f);drawText("DELETE",-.25f,-.53f,.007f);drawText("BACK",.25f,-.53f,.007f);}
+ else if(screen==2){drawText("CREATE WORLD",0,.445f,.009f);drawText("NAME",-.34f,.20f,.0065f);drawText(worldName,0,.20f,.0065f);drawText("SEED",-.34f,.04f,.0065f);drawText(seedText.empty()?"RANDOM":seedText,0,.04f,.0065f);drawText("CREATE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
+ else if(screen==3){drawText("RENAME WORLD",0,.445f,.009f);drawText("NAME",-.34f,.16f,.0065f);drawText(worldName,0,.16f,.0065f);drawText("SAVE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
+ else {drawText("DELETE WORLD",0,.445f,.009f);drawText(worldName,0,.12f,.007f);drawText("DELETE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
 }
 
 void GpuRenderBackend::releaseMesh(BufferPair& mesh) {
