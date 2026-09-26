@@ -85,7 +85,9 @@ bool Application::initialize(){
  }
  projectmc::log(projectmc::LogLevel::Info,"Discovering worlds...");
  world::WorldManager worldManager("saves");
- const auto selectedWorld=worldManager.ensureDefaultWorld();
+ auto selectedWorld=worldManager.ensureDefaultWorld();
+ availableWorlds_=worldManager.listWorlds();
+ if(availableWorlds_.empty())availableWorlds_.push_back(selectedWorld);
  worldPath_=selectedWorld.path;worldName_=selectedWorld.metadata.name;
  projectmc::log(projectmc::LogLevel::Info,"Loading world: "+worldName_+" ["+selectedWorld.id+"].");
  world::WorldMetadata metadata;
@@ -141,8 +143,9 @@ bool Application::initialize(){
  // Pump the window once before grabbing the mouse. On Windows this avoids capturing
  // input while the SDL window is still being created/activated.
  SDL_PumpEvents();SDL_RaiseWindow(window_);
- if(!SDL_SetWindowRelativeMouseMode(window_,true))
-  projectmc::log(projectmc::LogLevel::Warning,std::string("Relative mouse mode unavailable: ")+SDL_GetError());
+ SDL_SetWindowRelativeMouseMode(window_,false);
+ screen_=Screen::Title;menuSelection_=0;
+ SDL_SetWindowTitle(window_,"ProjectMC | Main Menu | Enter: Singleplayer | Q: Quit");
  running_=true;
  projectmc::log(projectmc::LogLevel::Info,"Game initialised - entering main loop.");
  return true;
@@ -158,7 +161,7 @@ void Application::processEvents(){
 
   if(e.type==SDL_EVENT_WINDOW_RESIZED&&renderBackend_) renderBackend_->resize(e.window.data1,e.window.data2);
 
-  if(e.type==SDL_EVENT_WINDOW_FOCUS_GAINED)
+  if(e.type==SDL_EVENT_WINDOW_FOCUS_GAINED&&screen_==Screen::Playing)
    SDL_SetWindowRelativeMouseMode(window_,true);
 
   if(e.type==SDL_EVENT_WINDOW_FOCUS_LOST){
@@ -170,6 +173,36 @@ void Application::processEvents(){
 
   if(e.type==SDL_EVENT_KEY_DOWN||e.type==SDL_EVENT_KEY_UP){
    const bool down=e.type==SDL_EVENT_KEY_DOWN;
+   if(down&&!e.key.repeat&&screen_!=Screen::Playing){
+    if(e.key.key==SDLK_UP||e.key.key==SDLK_W)menuSelection_=std::max(0,menuSelection_-1);
+    if(e.key.key==SDLK_DOWN||e.key.key==SDLK_S){
+     const int maxItem=screen_==Screen::Title?1:std::max(0,(int)availableWorlds_.size()-1);
+     menuSelection_=std::min(maxItem,menuSelection_+1);
+    }
+    if(screen_==Screen::Title&&e.key.key==SDLK_Q)running_=false;
+    if(e.key.key==SDLK_ESCAPE){
+     if(screen_==Screen::Singleplayer){screen_=Screen::Title;menuSelection_=0;SDL_SetWindowTitle(window_,"ProjectMC | Main Menu | Enter: Singleplayer | Q: Quit");}
+     else running_=false;
+    }
+    if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER){
+     if(screen_==Screen::Title){
+      if(menuSelection_==0){screen_=Screen::Singleplayer;menuSelection_=0;}
+      else running_=false;
+     } else if(!availableWorlds_.empty()){
+      // The first UI pass enters the world already loaded by WorldManager.
+      // Full hot-switching between arbitrary saves comes with Create/Select World.
+      screen_=Screen::Playing;
+      SDL_SetWindowRelativeMouseMode(window_,true);
+     }
+    }
+    if(screen_==Screen::Singleplayer&&!availableWorlds_.empty()){
+     const int i=std::clamp(menuSelection_,0,(int)availableWorlds_.size()-1);
+     const auto& w=availableWorlds_[i];
+     const std::string title="ProjectMC | Singleplayer | "+w.metadata.name+" | seed "+std::to_string(w.metadata.seed)+" | Enter: Play | Esc: Back";
+     SDL_SetWindowTitle(window_,title.c_str());
+    }
+    continue;
+   }
    switch(e.key.scancode){
     case SDL_SCANCODE_W: input_.forward=down; break;
     case SDL_SCANCODE_S: input_.backward=down; break;
@@ -184,11 +217,13 @@ void Application::processEvents(){
    }
 
    if(down&&!e.key.repeat){
-    if(e.key.key==SDLK_ESCAPE)running_=false;
+    if(e.key.key==SDLK_ESCAPE){screen_=Screen::Title;menuSelection_=0;SDL_SetWindowRelativeMouseMode(window_,false);SDL_SetWindowTitle(window_,"ProjectMC | Main Menu | Enter: Singleplayer | Q: Quit");}
     if(e.key.key>=SDLK_1&&e.key.key<=SDLK_5)
      input_.hotbarSelection=(int)(e.key.key-SDLK_1);
    }
   }
+
+  if(screen_!=Screen::Playing)continue;
 
   if(e.type==SDL_EVENT_MOUSE_MOTION){
    input_.mouseDeltaX+=e.motion.xrel;
@@ -222,12 +257,18 @@ void Application::interact(bool place){
   world_.setBlock(bx,by,bz,selectedBlock_);
  }else world_.setBlock(h.x,h.y,h.z,0);
 }
-void Application::update(double dt){constexpr float mouseSensitivity=.09f;
+void Application::update(double dt){if(screen_!=Screen::Playing)return;constexpr float mouseSensitivity=.09f;
  camera_.yaw+=input_.mouseDeltaX*mouseSensitivity;
  camera_.pitch-=input_.mouseDeltaY*mouseSensitivity;
  if(camera_.yaw>180.0f)camera_.yaw-=360.0f;
  if(camera_.yaw<-180.0f)camera_.yaw+=360.0f;if(camera_.pitch>89)camera_.pitch=89;if(camera_.pitch<-89)camera_.pitch=-89;player_.update(dt,input_,world_,camera_.yaw);camera_.position=player_.eyePosition();world_.updateStreaming(player_.position.x,player_.position.z,config_.viewDistance);if(input_.hotbarSelection>=0){selectedSlot_=input_.hotbarSelection;const char* names[5]={"stone","dirt","grass","sand","water"};selectedBlock_=world_.blocks().id(names[selectedSlot_]);}if(input_.removeBlock)interact(false);if(input_.placeBlock)interact(true);}
 void Application::render(){
+ if(gpuMode_&&screen_!=Screen::Playing){
+  auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get());if(!gpu)return;
+  gpu->beginFrame(camera_);
+  gpu->drawMenu(screen_==Screen::Title?0:1,menuSelection_,screen_==Screen::Title?2:(int)availableWorlds_.size());
+  gpu->endFrame();return;
+ }
  chunkRenderer_.syncMeshes(world_,atlas_);
  if(gpuMode_){
   auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get());
@@ -273,7 +314,7 @@ int Application::run(){
     <<" | quads "<<s.opaqueQuads<<"+"<<s.transparentQuads
     <<" | verts "<<s.gpuVertices
     <<" | tris "<<s.gpuTriangles;
-   SDL_SetWindowTitle(window_,title.str().c_str());
+   if(screen_==Screen::Playing)SDL_SetWindowTitle(window_,title.str().c_str());
   }
  }
  return 0;
