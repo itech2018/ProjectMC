@@ -21,8 +21,9 @@ public:
  Application(const Application&)=delete;Application& operator=(const Application&)=delete;
  bool initialize();int run();
 private:
- enum class Screen { Title, Singleplayer, Playing };
+ enum class Screen { Title, Singleplayer, CreateWorld, Playing };
  void processEvents();void update(double dt);void render();void interact(bool place);
+ void activateMenuSelection();void loadWorldEntry(const world::WorldEntry& entry);
  projectmc::GameConfig config_;SDL_Window* window_{nullptr};SDL_Renderer* renderer_{nullptr};std::unique_ptr<RenderBackend> renderBackend_;
  InputState input_{};Camera camera_{};Player player_{};TextureAtlas atlas_{};ChunkRenderer chunkRenderer_{};world::World world_{};
  world::BlockId selectedBlock_{1};
@@ -37,5 +38,8 @@ private:
   Screen screen_{Screen::Title};
   int menuSelection_{0};
   std::vector<world::WorldEntry> availableWorlds_{};
+  std::string createWorldName_{"New World"};
+  std::string createWorldSeed_{};
+  int createField_{0};
 };
 }
