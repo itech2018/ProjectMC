@@ -32,7 +32,8 @@ public:
  bool uploadMesh(const void* vertices,Uint32 vertexBytes,const void* indices,Uint32 indexBytes,Uint32 indexCount,BufferPair& out);
  void releaseMesh(BufferPair& mesh);
  void drawIndexed(const BufferPair& mesh,bool transparent=false);
- void drawHud();
+ void drawHud(int selectedSlot);
+ void drawSelection(int x,int y,int z);
  bool createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader);
  [[nodiscard]] bool worldPipelineReady() const noexcept { return worldPipeline_!=nullptr; }
 
@@ -55,6 +56,7 @@ private:
  SDL_GPUGraphicsPipeline* worldPipeline_{nullptr};
  SDL_GPUGraphicsPipeline* transparentPipeline_{nullptr};
  SDL_GPUGraphicsPipeline* hudPipeline_{nullptr};
+ SDL_GPUGraphicsPipeline* selectionPipeline_{nullptr};
  SDL_GPUShader* worldVertexShader_{nullptr};
  SDL_GPUShader* worldFragmentShader_{nullptr};
  SDL_GPUShader* hudVertexShader_{nullptr};
