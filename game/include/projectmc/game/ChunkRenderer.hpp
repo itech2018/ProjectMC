@@ -15,6 +15,14 @@ namespace projectmc::game {
 class ChunkRenderer {
 public:
  struct Point { float x{}, y{}; bool valid{false}; };
+ struct Stats {
+  std::size_t loadedChunks{};
+  std::size_t renderedChunks{};
+  std::size_t opaqueQuads{};
+  std::size_t transparentQuads{};
+  std::size_t gpuVertices{};
+  std::size_t gpuTriangles{};
+ };
 
  void syncMeshes(world::World&, const TextureAtlas&);
  void renderWorld(SDL_Renderer*, const world::World&, const TextureAtlas&, const Camera&, int, int);
@@ -23,6 +31,7 @@ public:
  void renderGpuWorld(GpuRenderBackend&, const Camera&, int, int);
  void releaseGpuMeshes(GpuRenderBackend&);
  [[nodiscard]] Point project(float, float, float, const Camera&, int, int) const;
+ [[nodiscard]] Stats stats() const noexcept { return stats_; }
 
 private:
  struct Vertex3 { float x{}, y{}, z{}; };
@@ -61,5 +70,6 @@ private:
  std::unordered_map<world::ChunkPosition,ChunkMesh,world::ChunkPositionHash> meshes_;
  std::unordered_map<world::ChunkPosition,DeviceChunkMesh,world::ChunkPositionHash> gpuMeshes_;
  std::size_t nextRevision_{1};
+ Stats stats_{};
 };
 }
