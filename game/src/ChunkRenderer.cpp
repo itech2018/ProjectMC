@@ -34,7 +34,11 @@ void ChunkRenderer::appendGpuQuad(IndexedMesh& mesh,const Quad& q) {
   const auto& p=q.vertices[i];
   mesh.vertices.push_back({p.x,p.y,p.z,uv[i][0],uv[i][1],q.shade,q.transparent?.72f:1.0f});
  }
- mesh.indices.insert(mesh.indices.end(),{base,base+1,base+2,base,base+2,base+3});
+ // The legacy quad table is clockwise when viewed from outside. The SDL_GPU
+ // pipeline uses counter-clockwise front faces, so reverse each triangle here.
+ // Keeping this correction at the indexed-mesh boundary leaves the compatibility
+ // renderer's established UV/quad ordering untouched.
+ mesh.indices.insert(mesh.indices.end(),{base,base+2,base+1,base,base+3,base+2});
 }
 
 void ChunkRenderer::rebuildMesh(const world::ChunkPosition& pos,const world::Chunk& chunk,const world::World& world,const TextureAtlas& atlas) {
