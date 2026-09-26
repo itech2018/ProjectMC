@@ -12,10 +12,12 @@ GpuRenderBackend::~GpuRenderBackend() {
  if(device_&&atlasTexture_) SDL_ReleaseGPUTexture(device_,atlasTexture_);
  atlasSampler_=nullptr;
  atlasTexture_=nullptr;
+ if(device_&&transparentPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,transparentPipeline_);
  if(device_&&worldPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,worldPipeline_);
  if(device_&&worldVertexShader_) SDL_ReleaseGPUShader(device_,worldVertexShader_);
  if(device_&&worldFragmentShader_) SDL_ReleaseGPUShader(device_,worldFragmentShader_);
  worldPipeline_=nullptr;
+ transparentPipeline_=nullptr;
  worldVertexShader_=nullptr;
  worldFragmentShader_=nullptr;
  destroyDepthTarget();
@@ -147,8 +149,28 @@ bool GpuRenderBackend::createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUSh
  info.target_info.has_depth_stencil_target=true;
 
  worldPipeline_=SDL_CreateGPUGraphicsPipeline(device_,&info);
- if(!worldPipeline_) projectmc::log(projectmc::LogLevel::Warning,std::string("Could not create GPU world pipeline: ")+SDL_GetError());
- return worldPipeline_!=nullptr;
+ if(!worldPipeline_) {
+  projectmc::log(projectmc::LogLevel::Warning,std::string("Could not create GPU world pipeline: ")+SDL_GetError());
+  return false;
+ }
+
+ SDL_GPUColorTargetDescription transparentColor=color;
+ transparentColor.blend_state.enable_blend=true;
+ transparentColor.blend_state.src_color_blendfactor=SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+ transparentColor.blend_state.dst_color_blendfactor=SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+ transparentColor.blend_state.color_blend_op=SDL_GPU_BLENDOP_ADD;
+ transparentColor.blend_state.src_alpha_blendfactor=SDL_GPU_BLENDFACTOR_ONE;
+ transparentColor.blend_state.dst_alpha_blendfactor=SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+ transparentColor.blend_state.alpha_blend_op=SDL_GPU_BLENDOP_ADD;
+
+ info.target_info.color_target_descriptions=&transparentColor;
+ info.depth_stencil_state.enable_depth_write=false;
+ transparentPipeline_=SDL_CreateGPUGraphicsPipeline(device_,&info);
+ if(!transparentPipeline_) {
+  projectmc::log(projectmc::LogLevel::Warning,std::string("Could not create GPU transparent pipeline: ")+SDL_GetError());
+  return false;
+ }
+ return true;
 }
 
 bool GpuRenderBackend::uploadAtlas(const TextureAtlas& atlas) {
@@ -306,10 +328,11 @@ bool GpuRenderBackend::uploadMesh(const void* vertices,Uint32 vertexBytes,const 
  return true;
 }
 
-void GpuRenderBackend::drawIndexed(const BufferPair& mesh) {
- if(!renderPass_||!worldPipeline_||!mesh.vertex||!mesh.index||mesh.indexCount==0) return;
+void GpuRenderBackend::drawIndexed(const BufferPair& mesh,bool transparent) {
+ SDL_GPUGraphicsPipeline* pipeline=transparent?transparentPipeline_:worldPipeline_;
+ if(!renderPass_||!pipeline||!mesh.vertex||!mesh.index||mesh.indexCount==0) return;
 
- SDL_BindGPUGraphicsPipeline(renderPass_,worldPipeline_);
+ SDL_BindGPUGraphicsPipeline(renderPass_,pipeline);
  if(atlasTexture_&&atlasSampler_) {
   SDL_GPUTextureSamplerBinding atlasBinding{};
   atlasBinding.texture=atlasTexture_;
