@@ -508,7 +508,8 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const
   add(.25f,-.55f,.19f,.045f,action==4?.32f:.20f,action==4?.36f:.23f,action==4?.42f:.28f,1);
  }else if(screen==2){add(0,.20f,.44f,.055f,.16f,.21f,.28f,1);add(0,.04f,.44f,.055f,.16f,.21f,.28f,1);add(-.23f,-.48f,.19f,.055f,.20f,.48f,.72f,1);add(.23f,-.48f,.19f,.055f,.25f,.28f,.32f,1);}
  else if(screen==3){add(0,.16f,.44f,.055f,.16f,.21f,.28f,1);add(-.23f,-.48f,.19f,.055f,.20f,.48f,.72f,1);add(.23f,-.48f,.19f,.055f,.25f,.28f,.32f,1);}
- else {add(0,.12f,.44f,.065f,.20f,.18f,.18f,1);add(-.23f,-.48f,.19f,.055f,.50f,.18f,.18f,1);add(.23f,-.48f,.19f,.055f,.25f,.28f,.32f,1);}
+ else if(screen==4){add(0,.12f,.44f,.065f,.20f,.18f,.18f,1);add(-.23f,-.48f,.19f,.055f,.50f,.18f,.18f,1);add(.23f,-.48f,.19f,.055f,.25f,.28f,.32f,1);}
+ else {for(int i=0;i<4;++i){float y=.24f-i*.16f;bool s=i==selectedIndex;add(0,y,.34f,.055f,s?.28f:.18f,s?.58f:.22f,s?.84f:.28f,1);}}
  flush(data);
  static const std::pair<char,const char*> glyphs[]={
  {'A',"011101000110001111111000110001"},{'B',"111101000111110100011000111110"},{'C',"011111000010000100001000001111"},{'D',"111101000110001100011000111110"},
@@ -531,7 +532,8 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const
  else if(screen==1){drawText("SINGLEPLAYER",0,.455f,.008f);const int visible=std::min(5,(int)worldNames.size());for(int row=0;row<visible;++row){std::string n=worldNames[row];if(n.size()>28)n.resize(28);drawText(n,0,.31f-row*.13f,.007f);}drawText("PLAY",0,-.31f,.007f);drawText("CREATE",-.25f,-.43f,.007f);drawText("RENAME",.25f,-.43f,.007f);drawText("DELETE",-.25f,-.55f,.007f);drawText("BACK",.25f,-.55f,.007f);}
  else if(screen==2){drawText("CREATE WORLD",0,.445f,.009f);drawText("NAME",-.34f,.20f,.0065f);drawText(worldName,0,.20f,.0065f);drawText("SEED",-.34f,.04f,.0065f);drawText(seedText.empty()?"RANDOM":seedText,0,.04f,.0065f);drawText("CREATE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
  else if(screen==3){drawText("RENAME WORLD",0,.445f,.009f);drawText("NAME",-.34f,.16f,.0065f);drawText(worldName,0,.16f,.0065f);drawText("SAVE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
- else {drawText("DELETE WORLD",0,.445f,.009f);drawText(worldName,0,.12f,.007f);drawText("DELETE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
+ else if(screen==4){drawText("DELETE WORLD",0,.445f,.009f);drawText(worldName,0,.12f,.007f);drawText("DELETE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
+ else {drawText("PAUSED",0,.445f,.009f);drawText("RESUME",0,.24f,.008f);drawText("SETTINGS",0,.08f,.008f);drawText("SAVE WORLD",0,-.08f,.008f);drawText("SAVE AND QUIT",0,-.24f,.0075f);}
 }
 
 void GpuRenderBackend::releaseMesh(BufferPair& mesh) {
