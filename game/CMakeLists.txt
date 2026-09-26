@@ -53,13 +53,27 @@ set_source_files_properties(${PROJECTMC_SHADER_SOURCES} PROPERTIES
 # Shader Compiler when it is available. The runtime loader expects these exact
 # names under <exe>/shaders.
 if(WIN32)
-  find_program(PROJECTMC_DXC NAMES dxc dxc.exe
-    HINTS
-      "$ENV{WindowsSdkDir}/bin/$ENV{WindowsSDKVersion}/x64"
-      "$ENV{WindowsSdkDir}/bin/x64"
+  # Visual Studio developer shells do not always put DXC on PATH. Search the
+  # versioned Windows SDK bin directories and prefer the newest x64 compiler.
+  file(GLOB PROJECTMC_WINDOWS_SDK_DXC
+    "C:/Program Files (x86)/Windows Kits/10/bin/*/x64/dxc.exe"
   )
+  if(PROJECTMC_WINDOWS_SDK_DXC)
+    list(SORT PROJECTMC_WINDOWS_SDK_DXC COMPARE NATURAL ORDER DESCENDING)
+    list(GET PROJECTMC_WINDOWS_SDK_DXC 0 PROJECTMC_DXC)
+  else()
+    find_program(PROJECTMC_DXC NAMES dxc dxc.exe
+      HINTS
+        "$ENV{WindowsSdkDir}/bin/$ENV{WindowsSDKVersion}/x64"
+        "$ENV{WindowsSdkDir}/bin/x64"
+    )
+  endif()
 else()
   find_program(PROJECTMC_DXC NAMES dxc)
+endif()
+
+if(PROJECTMC_DXC)
+  message(STATUS "ProjectMC: DXC found: ${PROJECTMC_DXC}")
 endif()
 
 set(PROJECTMC_SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
