@@ -146,6 +146,7 @@ void ChunkRenderer::renderGpuWorld(GpuRenderBackend& backend,const Camera& cam,i
  const float cp=std::cos(pitch),sp=std::sin(pitch);
  const float halfHFov=std::atan(std::tan(cam.fieldOfView*pi/360.0f)*(static_cast<float>(w)/static_cast<float>(h)));
 
+ std::vector<std::pair<float,const DeviceChunkMesh*>> transparentDraws;
  for(const auto& [pos,gpu]:gpuMeshes_) {
   const float minX=static_cast<float>(pos.x*world::Chunk::Width);
   const float minY=static_cast<float>(pos.y*world::Chunk::Height);
@@ -162,7 +163,16 @@ void ChunkRenderer::renderGpuWorld(GpuRenderBackend& backend,const Camera& cam,i
   const float sideLimit=std::max(cameraDepth,0.0f)*std::tan(halfHFov)+chunkRadius;
   if(std::abs(cameraRight)>sideLimit) continue;
   backend.drawIndexed(gpu.opaque);
+  if(gpu.transparent.indexCount>0) {
+   const float distanceSquared=dx*dx+dy*dy+dz*dz;
+   transparentDraws.emplace_back(distanceSquared,&gpu);
+  }
  }
+
+ std::sort(transparentDraws.begin(),transparentDraws.end(),
+  [](const auto& a,const auto& b){return a.first>b.first;});
+ for(const auto& entry:transparentDraws)
+  backend.drawIndexed(entry.second->transparent,true);
 }
 
 void ChunkRenderer::renderWorld(SDL_Renderer* r,const world::World&,const TextureAtlas& atlas,const Camera& cam,int w,int h) {
