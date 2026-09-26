@@ -8,6 +8,10 @@
 namespace projectmc::game {
 
 GpuRenderBackend::~GpuRenderBackend() {
+ if(device_&&atlasSampler_) SDL_ReleaseGPUSampler(device_,atlasSampler_);
+ if(device_&&atlasTexture_) SDL_ReleaseGPUTexture(device_,atlasTexture_);
+ atlasSampler_=nullptr;
+ atlasTexture_=nullptr;
  if(device_&&worldPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,worldPipeline_);
  if(device_&&worldVertexShader_) SDL_ReleaseGPUShader(device_,worldVertexShader_);
  if(device_&&worldFragmentShader_) SDL_ReleaseGPUShader(device_,worldFragmentShader_);
@@ -147,6 +151,83 @@ bool GpuRenderBackend::createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUSh
  return worldPipeline_!=nullptr;
 }
 
+bool GpuRenderBackend::uploadAtlas(const TextureAtlas& atlas) {
+ if(!device_||atlas.pixels().empty()||atlas.width()<=0||atlas.height()<=0) return false;
+
+ if(atlasSampler_) SDL_ReleaseGPUSampler(device_,atlasSampler_);
+ if(atlasTexture_) SDL_ReleaseGPUTexture(device_,atlasTexture_);
+ atlasSampler_=nullptr;
+ atlasTexture_=nullptr;
+
+ SDL_GPUTextureCreateInfo textureInfo{};
+ textureInfo.type=SDL_GPU_TEXTURETYPE_2D;
+ textureInfo.format=SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+ textureInfo.usage=SDL_GPU_TEXTUREUSAGE_SAMPLER;
+ textureInfo.width=static_cast<Uint32>(atlas.width());
+ textureInfo.height=static_cast<Uint32>(atlas.height());
+ textureInfo.layer_count_or_depth=1;
+ textureInfo.num_levels=1;
+ textureInfo.sample_count=SDL_GPU_SAMPLECOUNT_1;
+ atlasTexture_=SDL_CreateGPUTexture(device_,&textureInfo);
+ if(!atlasTexture_) return false;
+
+ SDL_GPUSamplerCreateInfo samplerInfo{};
+ samplerInfo.min_filter=SDL_GPU_FILTER_NEAREST;
+ samplerInfo.mag_filter=SDL_GPU_FILTER_NEAREST;
+ samplerInfo.mipmap_mode=SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+ samplerInfo.address_mode_u=SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+ samplerInfo.address_mode_v=SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+ samplerInfo.address_mode_w=SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+ atlasSampler_=SDL_CreateGPUSampler(device_,&samplerInfo);
+ if(!atlasSampler_) return false;
+
+ const Uint32 byteCount=static_cast<Uint32>(atlas.pixels().size());
+ SDL_GPUTransferBufferCreateInfo transferInfo{};
+ transferInfo.usage=SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+ transferInfo.size=byteCount;
+ SDL_GPUTransferBuffer* transfer=SDL_CreateGPUTransferBuffer(device_,&transferInfo);
+ if(!transfer) return false;
+ void* mapped=SDL_MapGPUTransferBuffer(device_,transfer,false);
+ if(!mapped) {
+  SDL_ReleaseGPUTransferBuffer(device_,transfer);
+  return false;
+ }
+ std::memcpy(mapped,atlas.pixels().data(),byteCount);
+ SDL_UnmapGPUTransferBuffer(device_,transfer);
+
+ SDL_GPUCommandBuffer* cmd=SDL_AcquireGPUCommandBuffer(device_);
+ if(!cmd) {
+  SDL_ReleaseGPUTransferBuffer(device_,transfer);
+  return false;
+ }
+ SDL_GPUCopyPass* copy=SDL_BeginGPUCopyPass(cmd);
+ if(!copy) {
+  SDL_CancelGPUCommandBuffer(cmd);
+  SDL_ReleaseGPUTransferBuffer(device_,transfer);
+  return false;
+ }
+
+ SDL_GPUTextureTransferInfo source{};
+ source.transfer_buffer=transfer;
+ source.offset=0;
+ source.pixels_per_row=static_cast<Uint32>(atlas.width());
+ source.rows_per_layer=static_cast<Uint32>(atlas.height());
+
+ SDL_GPUTextureRegion destination{};
+ destination.texture=atlasTexture_;
+ destination.w=static_cast<Uint32>(atlas.width());
+ destination.h=static_cast<Uint32>(atlas.height());
+ destination.d=1;
+ SDL_UploadToGPUTexture(copy,&source,&destination,false);
+ SDL_EndGPUCopyPass(copy);
+
+ const bool submitted=SDL_SubmitGPUCommandBuffer(cmd);
+ SDL_ReleaseGPUTransferBuffer(device_,transfer);
+ if(!submitted) return false;
+ projectmc::log(projectmc::LogLevel::Info,"GPU block texture atlas uploaded.");
+ return true;
+}
+
 bool GpuRenderBackend::uploadMesh(const void* vertices,Uint32 vertexBytes,const void* indices,Uint32 indexBytes,Uint32 indexCount,BufferPair& out) {
  if(!device_||!vertices||!indices||vertexBytes==0||indexBytes==0) return false;
 
@@ -229,6 +310,12 @@ void GpuRenderBackend::drawIndexed(const BufferPair& mesh) {
  if(!renderPass_||!worldPipeline_||!mesh.vertex||!mesh.index||mesh.indexCount==0) return;
 
  SDL_BindGPUGraphicsPipeline(renderPass_,worldPipeline_);
+ if(atlasTexture_&&atlasSampler_) {
+  SDL_GPUTextureSamplerBinding atlasBinding{};
+  atlasBinding.texture=atlasTexture_;
+  atlasBinding.sampler=atlasSampler_;
+  SDL_BindGPUFragmentSamplers(renderPass_,0,&atlasBinding,1);
+ }
 
  SDL_GPUBufferBinding vertexBinding{};
  vertexBinding.buffer=mesh.vertex;
