@@ -27,6 +27,16 @@ ChunkRenderer::Point ChunkRenderer::project(float x,float y,float z,const Camera
  return {w*.5f+rx*f/dz,h*.5f-ry*f/dz,true};
 }
 
+void ChunkRenderer::appendGpuQuad(IndexedMesh& mesh,const Quad& q) {
+ const unsigned int base=static_cast<unsigned int>(mesh.vertices.size());
+ const float uv[4][2]={{q.uv.u0,q.uv.v1},{q.uv.u0,q.uv.v0},{q.uv.u1,q.uv.v0},{q.uv.u1,q.uv.v1}};
+ for(int i=0;i<4;++i) {
+  const auto& p=q.vertices[i];
+  mesh.vertices.push_back({p.x,p.y,p.z,uv[i][0],uv[i][1],q.shade,q.transparent?.72f:1.0f});
+ }
+ mesh.indices.insert(mesh.indices.end(),{base,base+1,base+2,base,base+2,base+3});
+}
+
 void ChunkRenderer::rebuildMesh(const world::ChunkPosition& pos,const world::Chunk& chunk,const world::World& world,const TextureAtlas& atlas) {
  static constexpr std::array<P3,8> corners={{{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}}};
  static constexpr int faces[6][4]={{0,3,2,1},{4,5,6,7},{0,4,7,3},{1,2,6,5},{3,7,6,2},{0,1,5,4}};
@@ -57,7 +67,13 @@ void ChunkRenderer::rebuildMesh(const world::ChunkPosition& pos,const world::Chu
     const auto v=corners[faces[f][i]];
     q.vertices[i]={static_cast<float>(wx)+v.x,static_cast<float>(wy)+v.y,static_cast<float>(wz)+v.z};
    }
-   (q.transparent?mesh.transparent:mesh.opaque).push_back(q);
+   if(q.transparent) {
+    mesh.transparent.push_back(q);
+    appendGpuQuad(mesh.transparentGpu,q);
+   } else {
+    mesh.opaque.push_back(q);
+    appendGpuQuad(mesh.opaqueGpu,q);
+   }
   }
  }
  meshes_.insert_or_assign(pos,std::move(mesh));
