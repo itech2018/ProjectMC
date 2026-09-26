@@ -4,7 +4,7 @@ include(FetchContent)
 # This avoids FetchContent's Git update step, which can break on some
 # Windows/CMake/Git combinations with errors such as an invalid HEAD0 ref.
 FetchContent_Declare(SDL3
-  URL https://github.com/libsdl-org/SDL/releases/download/release-3.2.22/SDL3-3.2.22.tar.gz
+  URL https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-3.4.16.tar.gz
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
