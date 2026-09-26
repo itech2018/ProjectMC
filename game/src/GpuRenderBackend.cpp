@@ -1,5 +1,6 @@
 #include "projectmc/game/GpuRenderBackend.hpp"
 #include "projectmc/Log.hpp"
+#include <string>
 
 namespace projectmc::game {
 
