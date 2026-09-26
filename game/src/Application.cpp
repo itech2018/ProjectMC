@@ -2,6 +2,7 @@
 #include "projectmc/Log.hpp"
 #include "projectmc/game/SdlRenderBackend.hpp"
 #include "projectmc/game/GpuRenderBackend.hpp"
+#include "projectmc/world/WorldMetadata.hpp"
 #include <chrono>
 #include <cmath>
 #include <utility>
@@ -11,6 +12,12 @@ namespace projectmc::game {
 constexpr float PI=3.14159265358979323846f;
 Application::Application(projectmc::GameConfig c):config_(std::move(c)){}
 Application::~Application(){
+ world::WorldMetadata metadata;
+ metadata.name="Development World";metadata.seed=world_.seed();
+ metadata.playerX=player_.position.x;metadata.playerY=player_.position.y;metadata.playerZ=player_.position.z;
+ metadata.yaw=camera_.yaw;metadata.pitch=camera_.pitch;
+ if(!world::saveWorldMetadata("saves/dev-world/level.meta",metadata))
+  projectmc::log(projectmc::LogLevel::Warning,"Could not save world metadata.");
  if(world_.overrideCount()>0) {
   if(world_.saveOverrides("saves/dev-world/world.pmc"))
    projectmc::log(projectmc::LogLevel::Info,"Saved "+std::to_string(world_.overrideCount())+" world block override(s).");
@@ -76,6 +83,17 @@ bool Application::initialize(){
   if(!atlas_.create(renderer_)){projectmc::log(projectmc::LogLevel::Error,std::string("Texture atlas failed: ")+SDL_GetError());return false;}
  }
  projectmc::log(projectmc::LogLevel::Info,"Loading development world...");
+ world::WorldMetadata metadata;
+ if(world::loadWorldMetadata("saves/dev-world/level.meta",metadata)) {
+  world_.setSeed(metadata.seed);
+  player_.position={metadata.playerX,metadata.playerY,metadata.playerZ};
+  camera_.yaw=metadata.yaw;camera_.pitch=metadata.pitch;
+  projectmc::log(projectmc::LogLevel::Info,"Loaded world metadata: "+metadata.name+" (seed "+std::to_string(metadata.seed)+").");
+ } else {
+  world_.setSeed(metadata.seed);
+  projectmc::log(projectmc::LogLevel::Info,"No world metadata found; creating Development World.");
+  world::saveWorldMetadata("saves/dev-world/level.meta",metadata);
+ }
  if(world_.loadOverrides("saves/dev-world/world.pmc"))
   projectmc::log(projectmc::LogLevel::Info,"Loaded "+std::to_string(world_.overrideCount())+" saved block override(s).");
  else
