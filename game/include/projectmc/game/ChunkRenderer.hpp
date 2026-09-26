@@ -9,6 +9,7 @@
 #include "projectmc/world/World.hpp"
 #include "projectmc/game/Camera.hpp"
 #include "projectmc/game/TextureAtlas.hpp"
+#include "projectmc/game/GpuRenderBackend.hpp"
 
 namespace projectmc::game {
 class ChunkRenderer {
@@ -18,6 +19,9 @@ public:
  void syncMeshes(world::World&, const TextureAtlas&);
  void renderWorld(SDL_Renderer*, const world::World&, const TextureAtlas&, const Camera&, int, int);
  void renderSelection(SDL_Renderer*, int, int, int, const Camera&, int, int);
+ void syncGpuMeshes(GpuRenderBackend&);
+ void renderGpuWorld(GpuRenderBackend&, const Camera&, int, int);
+ void releaseGpuMeshes(GpuRenderBackend&);
  [[nodiscard]] Point project(float, float, float, const Camera&, int, int) const;
 
 private:
@@ -43,10 +47,18 @@ private:
   std::vector<Quad> transparent;
   IndexedMesh opaqueGpu;
   IndexedMesh transparentGpu;
+  std::size_t revision{0};
+ };
+ struct DeviceChunkMesh {
+  GpuRenderBackend::BufferPair opaque;
+  GpuRenderBackend::BufferPair transparent;
+  std::size_t revision{0};
  };
 
  void rebuildMesh(const world::ChunkPosition&, const world::Chunk&, const world::World&, const TextureAtlas&);
  static void appendGpuQuad(IndexedMesh&, const Quad&);
  std::unordered_map<world::ChunkPosition,ChunkMesh,world::ChunkPositionHash> meshes_;
+ std::unordered_map<world::ChunkPosition,DeviceChunkMesh,world::ChunkPositionHash> gpuMeshes_;
+ std::size_t nextRevision_{1};
 };
 }
