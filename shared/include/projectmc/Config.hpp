@@ -7,6 +7,7 @@ struct GameConfig {
   int height{720};
   bool fullscreen{false};
   bool vsync{true};
+  int viewDistance{4};
 };
 GameConfig loadGameConfig(const std::string& path);
 }
