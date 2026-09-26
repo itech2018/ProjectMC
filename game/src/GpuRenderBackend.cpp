@@ -225,6 +225,24 @@ bool GpuRenderBackend::uploadMesh(const void* vertices,Uint32 vertexBytes,const 
  return true;
 }
 
+void GpuRenderBackend::drawIndexed(const BufferPair& mesh) {
+ if(!renderPass_||!worldPipeline_||!mesh.vertex||!mesh.index||mesh.indexCount==0) return;
+
+ SDL_BindGPUGraphicsPipeline(renderPass_,worldPipeline_);
+
+ SDL_GPUBufferBinding vertexBinding{};
+ vertexBinding.buffer=mesh.vertex;
+ vertexBinding.offset=0;
+ SDL_BindGPUVertexBuffers(renderPass_,0,&vertexBinding,1);
+
+ SDL_GPUBufferBinding indexBinding{};
+ indexBinding.buffer=mesh.index;
+ indexBinding.offset=0;
+ SDL_BindGPUIndexBuffer(renderPass_,&indexBinding,SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+ SDL_DrawGPUIndexedPrimitives(renderPass_,mesh.indexCount,1,0,0,0);
+}
+
 void GpuRenderBackend::releaseMesh(BufferPair& mesh) {
  if(device_) {
   if(mesh.vertex) SDL_ReleaseGPUBuffer(device_,mesh.vertex);
@@ -245,6 +263,7 @@ void GpuRenderBackend::beginFrame(const Camera& camera) {
  matrices_.update(camera,width_,height_);
  commandBuffer_=nullptr;
  swapchainTexture_=nullptr;
+ renderPass_=nullptr;
  if(!device_||!window_) return;
 
  commandBuffer_=SDL_AcquireGPUCommandBuffer(device_);
@@ -287,12 +306,15 @@ void GpuRenderBackend::beginFrame(const Camera& camera) {
  depth.cycle=false;
  depth.clear_stencil=0;
 
- SDL_GPURenderPass* pass=SDL_BeginGPURenderPass(commandBuffer_,&color,1,depthTexture_?&depth:nullptr);
- if(pass) SDL_EndGPURenderPass(pass);
+ renderPass_=SDL_BeginGPURenderPass(commandBuffer_,&color,1,depthTexture_?&depth:nullptr);
 }
 
 void GpuRenderBackend::endFrame() {
  if(!commandBuffer_) return;
+ if(renderPass_) {
+  SDL_EndGPURenderPass(renderPass_);
+  renderPass_=nullptr;
+ }
  if(!SDL_SubmitGPUCommandBuffer(commandBuffer_))
   projectmc::log(projectmc::LogLevel::Warning,std::string("Could not submit GPU frame: ")+SDL_GetError());
  commandBuffer_=nullptr;
