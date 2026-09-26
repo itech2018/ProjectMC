@@ -266,7 +266,12 @@ void Application::render(){
  if(gpuMode_&&screen_!=Screen::Playing){
   auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get());if(!gpu)return;
   gpu->beginFrame(camera_);
-  gpu->drawMenu(screen_==Screen::Title?0:1,menuSelection_,screen_==Screen::Title?2:(int)availableWorlds_.size());
+  std::string menuWorld;
+  if(screen_==Screen::Singleplayer&&!availableWorlds_.empty()){
+   const int i=std::clamp(menuSelection_,0,(int)availableWorlds_.size()-1);
+   menuWorld=availableWorlds_[i].metadata.name;
+  }
+  gpu->drawMenu(screen_==Screen::Title?0:1,menuSelection_,screen_==Screen::Title?2:(int)availableWorlds_.size(),menuWorld);
   gpu->endFrame();return;
  }
  chunkRenderer_.syncMeshes(world_,atlas_);
