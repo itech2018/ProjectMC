@@ -39,6 +39,8 @@ set(PROJECTMC_SHADER_SOURCES
   ${CMAKE_CURRENT_SOURCE_DIR}/shaders/voxel.frag.hlsl
   ${CMAKE_CURRENT_SOURCE_DIR}/shaders/hud.vert.hlsl
   ${CMAKE_CURRENT_SOURCE_DIR}/shaders/hud.frag.hlsl
+  ${CMAKE_CURRENT_SOURCE_DIR}/shaders/selection.vert.hlsl
+  ${CMAKE_CURRENT_SOURCE_DIR}/shaders/selection.frag.hlsl
 )
 target_sources(projectmc-game PRIVATE ${PROJECTMC_SHADER_SOURCES})
 source_group("Shaders" FILES ${PROJECTMC_SHADER_SOURCES})
@@ -88,6 +90,8 @@ if(PROJECTMC_DXC)
       "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.frag.dxil"
       "${PROJECTMC_SHADER_OUTPUT_DIR}/hud.vert.dxil"
       "${PROJECTMC_SHADER_OUTPUT_DIR}/hud.frag.dxil"
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/selection.vert.dxil"
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/selection.frag.dxil"
     COMMAND "${PROJECTMC_DXC}" -T vs_6_0 -E main
       -Fo "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.vert.dxil"
       "${CMAKE_CURRENT_SOURCE_DIR}/shaders/voxel.vert.hlsl"
@@ -100,6 +104,12 @@ if(PROJECTMC_DXC)
     COMMAND "${PROJECTMC_DXC}" -T ps_6_0 -E main
       -Fo "${PROJECTMC_SHADER_OUTPUT_DIR}/hud.frag.dxil"
       "${CMAKE_CURRENT_SOURCE_DIR}/shaders/hud.frag.hlsl"
+    COMMAND "${PROJECTMC_DXC}" -T vs_6_0 -E main
+      -Fo "${PROJECTMC_SHADER_OUTPUT_DIR}/selection.vert.dxil"
+      "${CMAKE_CURRENT_SOURCE_DIR}/shaders/selection.vert.hlsl"
+    COMMAND "${PROJECTMC_DXC}" -T ps_6_0 -E main
+      -Fo "${PROJECTMC_SHADER_OUTPUT_DIR}/selection.frag.dxil"
+      "${CMAKE_CURRENT_SOURCE_DIR}/shaders/selection.frag.hlsl"
     DEPENDS ${PROJECTMC_SHADER_SOURCES}
     COMMENT "Compiling ProjectMC voxel shaders to DXIL"
     VERBATIM
@@ -110,6 +120,8 @@ if(PROJECTMC_DXC)
       "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.frag.dxil"
       "${PROJECTMC_SHADER_OUTPUT_DIR}/hud.vert.dxil"
       "${PROJECTMC_SHADER_OUTPUT_DIR}/hud.frag.dxil"
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/selection.vert.dxil"
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/selection.frag.dxil"
   )
   add_dependencies(projectmc-game projectmc-shaders)
 
@@ -127,6 +139,12 @@ if(PROJECTMC_DXC)
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "${PROJECTMC_SHADER_OUTPUT_DIR}/hud.frag.dxil"
       "$<TARGET_FILE_DIR:projectmc-game>/shaders/hud.frag.dxil"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/selection.vert.dxil"
+      "$<TARGET_FILE_DIR:projectmc-game>/shaders/selection.vert.dxil"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/selection.frag.dxil"
+      "$<TARGET_FILE_DIR:projectmc-game>/shaders/selection.frag.dxil"
     COMMENT "Packaging ProjectMC DXIL shaders"
   )
 else()
