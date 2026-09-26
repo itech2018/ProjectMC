@@ -17,6 +17,8 @@ public:
  bool loadOverrides(const std::string& path);
  bool saveOverrides(const std::string& path) const;
  [[nodiscard]] std::size_t overrideCount() const noexcept{return overrides_.size();}
+ void setSeed(std::uint64_t seed) noexcept{seed_=seed;}
+ [[nodiscard]] std::uint64_t seed() const noexcept{return seed_;}
  [[nodiscard]] bool isDirty(const ChunkPosition&p)const{return dirty_.contains(p);}
  void clearDirty(const ChunkPosition&p){dirty_.erase(p);}
 private:
@@ -25,5 +27,6 @@ private:
  struct BlockPositionHash { std::size_t operator()(const BlockPosition& p)const noexcept; };
  BlockRegistry blocks_;std::unordered_map<ChunkPosition,Chunk,ChunkPositionHash> chunks_;std::unordered_set<ChunkPosition,ChunkPositionHash> dirty_;
  std::unordered_map<BlockPosition,BlockId,BlockPositionHash> overrides_;
+ std::uint64_t seed_{0};
 };
 }
