@@ -40,7 +40,9 @@ public:
 private:
  bool loadWorldShaders();
  bool loadHudShaders();
+ bool loadSelectionShaders();
  bool createHudPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader);
+ bool createSelectionPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader);
  std::string shaderPath(const char* stem) const;
  void destroyDepthTarget();
  bool createDepthTarget();
@@ -61,6 +63,8 @@ private:
  SDL_GPUShader* worldFragmentShader_{nullptr};
  SDL_GPUShader* hudVertexShader_{nullptr};
  SDL_GPUShader* hudFragmentShader_{nullptr};
+ SDL_GPUShader* selectionVertexShader_{nullptr};
+ SDL_GPUShader* selectionFragmentShader_{nullptr};
  CameraMatrices matrices_{};
  int width_{0};
  int height_{0};
