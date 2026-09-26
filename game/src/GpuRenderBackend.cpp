@@ -12,12 +12,18 @@ GpuRenderBackend::~GpuRenderBackend() {
  if(device_&&atlasTexture_) SDL_ReleaseGPUTexture(device_,atlasTexture_);
  atlasSampler_=nullptr;
  atlasTexture_=nullptr;
+ if(device_&&hudPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,hudPipeline_);
+ if(device_&&hudVertexShader_) SDL_ReleaseGPUShader(device_,hudVertexShader_);
+ if(device_&&hudFragmentShader_) SDL_ReleaseGPUShader(device_,hudFragmentShader_);
  if(device_&&transparentPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,transparentPipeline_);
  if(device_&&worldPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,worldPipeline_);
  if(device_&&worldVertexShader_) SDL_ReleaseGPUShader(device_,worldVertexShader_);
  if(device_&&worldFragmentShader_) SDL_ReleaseGPUShader(device_,worldFragmentShader_);
  worldPipeline_=nullptr;
  transparentPipeline_=nullptr;
+ hudPipeline_=nullptr;
+ hudVertexShader_=nullptr;
+ hudFragmentShader_=nullptr;
  worldVertexShader_=nullptr;
  worldFragmentShader_=nullptr;
  destroyDepthTarget();
@@ -50,6 +56,8 @@ bool GpuRenderBackend::initialize(SDL_Window* window) {
  if(!createDepthTarget()) return false;
  if(!loadWorldShaders())
   projectmc::log(projectmc::LogLevel::Warning,"GPU device is ready, but compiled voxel shaders are not available yet.");
+ if(!loadHudShaders())
+  projectmc::log(projectmc::LogLevel::Warning,"GPU HUD shaders are not available yet.");
  return true;
 }
 
@@ -84,6 +92,40 @@ bool GpuRenderBackend::loadWorldShaders() {
  if(!createWorldPipeline(worldVertexShader_,worldFragmentShader_)) return false;
  projectmc::log(projectmc::LogLevel::Info,"GPU voxel shaders and world pipeline loaded.");
  return true;
+}
+
+bool GpuRenderBackend::loadHudShaders() {
+ if(!device_) return false;
+ const std::string vertexPath=shaderPath("hud.vert");
+ const std::string fragmentPath=shaderPath("hud.frag");
+ if(vertexPath.empty()||fragmentPath.empty()) return false;
+ hudVertexShader_=GpuShaderLoader::load(device_,vertexPath,SDL_GPU_SHADERSTAGE_VERTEX,0,0);
+ hudFragmentShader_=GpuShaderLoader::load(device_,fragmentPath,SDL_GPU_SHADERSTAGE_FRAGMENT,0,0);
+ if(!hudVertexShader_||!hudFragmentShader_) return false;
+ return createHudPipeline(hudVertexShader_,hudFragmentShader_);
+}
+
+bool GpuRenderBackend::createHudPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader) {
+ SDL_GPUColorTargetDescription color{};
+ color.format=SDL_GetGPUSwapchainTextureFormat(device_,window_);
+ color.blend_state.enable_blend=true;
+ color.blend_state.src_color_blendfactor=SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+ color.blend_state.dst_color_blendfactor=SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+ color.blend_state.color_blend_op=SDL_GPU_BLENDOP_ADD;
+ color.blend_state.src_alpha_blendfactor=SDL_GPU_BLENDFACTOR_ONE;
+ color.blend_state.dst_alpha_blendfactor=SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+ color.blend_state.alpha_blend_op=SDL_GPU_BLENDOP_ADD;
+
+ SDL_GPUGraphicsPipelineCreateInfo info{};
+ info.vertex_shader=vertexShader;
+ info.fragment_shader=fragmentShader;
+ info.primitive_type=SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+ info.rasterizer_state.fill_mode=SDL_GPU_FILLMODE_FILL;
+ info.rasterizer_state.cull_mode=SDL_GPU_CULLMODE_NONE;
+ info.target_info.color_target_descriptions=&color;
+ info.target_info.num_color_targets=1;
+ hudPipeline_=SDL_CreateGPUGraphicsPipeline(device_,&info);
+ return hudPipeline_!=nullptr;
 }
 
 void GpuRenderBackend::destroyDepthTarget() {
@@ -351,6 +393,12 @@ void GpuRenderBackend::drawIndexed(const BufferPair& mesh,bool transparent) {
  SDL_BindGPUIndexBuffer(renderPass_,&indexBinding,SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
  SDL_DrawGPUIndexedPrimitives(renderPass_,mesh.indexCount,1,0,0,0);
+}
+
+void GpuRenderBackend::drawHud() {
+ if(!renderPass_||!hudPipeline_) return;
+ SDL_BindGPUGraphicsPipeline(renderPass_,hudPipeline_);
+ SDL_DrawGPUPrimitives(renderPass_,12,1,0,0);
 }
 
 void GpuRenderBackend::releaseMesh(BufferPair& mesh) {
