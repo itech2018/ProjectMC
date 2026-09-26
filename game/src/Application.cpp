@@ -170,15 +170,15 @@ void Application::loadWorldEntry(const world::WorldEntry& entry){
  screen_=Screen::Playing;SDL_SetWindowRelativeMouseMode(window_,true);
 }
 void Application::activateMenuSelection(){
- if(screen_==Screen::Title){if(menuSelection_==0){screen_=Screen::Singleplayer;menuSelection_=0;worldListOffset_=0;}else running_=false;return;}
+ if(screen_==Screen::Title){if(menuSelection_==0){screen_=Screen::Singleplayer;menuSelection_=0;selectedWorld_=0;worldListOffset_=0;}else running_=false;return;}
  if(screen_==Screen::Singleplayer){
   const int n=(int)availableWorlds_.size();
-  if(menuSelection_<n){loadWorldEntry(availableWorlds_[menuSelection_]);return;}
+  if(menuSelection_<n){selectedWorld_=menuSelection_;return;}
   const int action=menuSelection_-n;
-  if(action==0&&n){loadWorldEntry(availableWorlds_[std::clamp(worldListOffset_,0,n-1)]);}
+  if(action==0&&n){loadWorldEntry(availableWorlds_[std::clamp(selectedWorld_,0,n-1)]);}
   else if(action==1){screen_=Screen::CreateWorld;createField_=0;createWorldName_="New World";createWorldSeed_.clear();SDL_StartTextInput(window_);}
-  else if(action==2&&n){int i=std::clamp(worldListOffset_,0,n-1);renameWorldName_=availableWorlds_[i].metadata.name;menuSelection_=i;confirmSelection_=0;screen_=Screen::RenameWorld;SDL_StartTextInput(window_);}
-  else if(action==3&&n){menuSelection_=std::clamp(worldListOffset_,0,n-1);screen_=Screen::DeleteWorld;confirmSelection_=1;}
+  else if(action==2&&n){int i=std::clamp(selectedWorld_,0,n-1);renameWorldName_=availableWorlds_[i].metadata.name;menuSelection_=i;confirmSelection_=0;screen_=Screen::RenameWorld;SDL_StartTextInput(window_);}
+  else if(action==3&&n){menuSelection_=std::clamp(selectedWorld_,0,n-1);screen_=Screen::DeleteWorld;confirmSelection_=1;}
   else {screen_=Screen::Title;menuSelection_=0;}return;
  }
  if(screen_==Screen::CreateWorld){
@@ -207,22 +207,22 @@ void Application::processEvents(){
     if(screen_==Screen::CreateWorld&&createField_<2){auto& f=createField_==0?createWorldName_:createWorldSeed_;std::string add=e.text.text;if(createField_==1)add.erase(std::remove_if(add.begin(),add.end(),[](unsigned char ch){return !std::isdigit(ch);}),add.end());if(f.size()+add.size()<=32)f+=add;}
     else if(screen_==Screen::RenameWorld&&renameWorldName_.size()<32)renameWorldName_+=e.text.text;
    }
-   if(e.type==SDL_EVENT_MOUSE_WHEEL&&screen_==Screen::Singleplayer&&!availableWorlds_.empty()){menuSelection_=std::clamp(menuSelection_-(int)e.wheel.y,0,(int)availableWorlds_.size()-1);}
+   if(e.type==SDL_EVENT_MOUSE_WHEEL&&screen_==Screen::Singleplayer&&!availableWorlds_.empty()){worldListOffset_=std::clamp(worldListOffset_-(int)e.wheel.y,0,std::max(0,(int)availableWorlds_.size()-5));}
    if(e.type==SDL_EVENT_KEY_DOWN&&!e.key.repeat){
     if(screen_==Screen::CreateWorld){if(e.key.key==SDLK_TAB||e.key.key==SDLK_DOWN)createField_=(createField_+1)%4;if(e.key.key==SDLK_UP)createField_=(createField_+3)%4;if(e.key.key==SDLK_BACKSPACE&&createField_<2){auto&f=createField_==0?createWorldName_:createWorldSeed_;if(!f.empty())f.pop_back();}if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER){if(createField_<2)++createField_;else activateMenuSelection();}if(e.key.key==SDLK_ESCAPE){SDL_StopTextInput(window_);screen_=Screen::Singleplayer;}}
     else if(screen_==Screen::RenameWorld){if(e.key.key==SDLK_BACKSPACE&&!renameWorldName_.empty())renameWorldName_.pop_back();if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER){confirmSelection_=0;activateMenuSelection();}if(e.key.key==SDLK_ESCAPE){confirmSelection_=1;activateMenuSelection();}}
     else if(screen_==Screen::DeleteWorld){if(e.key.key==SDLK_LEFT||e.key.key==SDLK_RIGHT||e.key.key==SDLK_TAB)confirmSelection_=1-confirmSelection_;if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER)activateMenuSelection();if(e.key.key==SDLK_ESCAPE){confirmSelection_=1;activateMenuSelection();}}
     else {const int maxItem=screen_==Screen::Title?1:(int)availableWorlds_.size()+4;if(e.key.key==SDLK_UP||e.key.key==SDLK_W)menuSelection_=std::max(0,menuSelection_-1);if(e.key.key==SDLK_DOWN||e.key.key==SDLK_S)menuSelection_=std::min(maxItem,menuSelection_+1);if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER)activateMenuSelection();if(e.key.key==SDLK_ESCAPE){if(screen_==Screen::Singleplayer){screen_=Screen::Title;menuSelection_=0;}else running_=false;}}
    }
-   if(screen_==Screen::Singleplayer&&menuSelection_<(int)availableWorlds_.size()){if(menuSelection_<worldListOffset_)worldListOffset_=menuSelection_;if(menuSelection_>=worldListOffset_+5)worldListOffset_=menuSelection_-4;}
+   if(screen_==Screen::Singleplayer&&menuSelection_<(int)availableWorlds_.size()){selectedWorld_=menuSelection_;if(selectedWorld_<worldListOffset_)worldListOffset_=selectedWorld_;if(selectedWorld_>=worldListOffset_+5)worldListOffset_=selectedWorld_-4;}
    if(e.type==SDL_EVENT_MOUSE_MOTION){int w=0,h=0;SDL_GetWindowSizeInPixels(window_,&w,&h);float nx=e.motion.x/w*2-1,ny=1-e.motion.y/h*2;
     if(screen_==Screen::Title){if(std::abs(nx)<=.30f&&ny>=.055f&&ny<=.185f)menuSelection_=0;else if(std::abs(nx)<=.30f&&ny>=-.145f&&ny<=-.015f)menuSelection_=1;}
-    else if(screen_==Screen::Singleplayer){for(int row=0;row<5&&worldListOffset_+row<(int)availableWorlds_.size();++row){float y=.31f-row*.13f;if(std::abs(nx)<=.48f&&ny>=y-.05f&&ny<=y+.05f){menuSelection_=worldListOffset_+row;worldListOffset_=menuSelection_;}}}
+    else if(screen_==Screen::Singleplayer){for(int row=0;row<5&&worldListOffset_+row<(int)availableWorlds_.size();++row){float y=.31f-row*.13f;if(std::abs(nx)<=.48f&&ny>=y-.05f&&ny<=y+.05f){menuSelection_=worldListOffset_+row;selectedWorld_=menuSelection_;}}}
    }
    if(e.type==SDL_EVENT_MOUSE_BUTTON_DOWN&&e.button.button==SDL_BUTTON_LEFT){
     int w=0,h=0;SDL_GetWindowSizeInPixels(window_,&w,&h);float nx=e.button.x/w*2-1,ny=1-e.button.y/h*2;bool hit=false;
     if(screen_==Screen::Title){if(std::abs(nx)<=.32f&&ny>=.055f&&ny<=.185f){menuSelection_=0;hit=true;}else if(std::abs(nx)<=.32f&&ny>=-.145f&&ny<=-.015f){menuSelection_=1;hit=true;}}
-    else if(screen_==Screen::Singleplayer){int n=(int)availableWorlds_.size();for(int row=0;row<5&&worldListOffset_+row<n;++row){float y=.31f-row*.13f;if(std::abs(nx)<=.48f&&ny>=y-.05f&&ny<=y+.05f){menuSelection_=worldListOffset_+row;worldListOffset_=menuSelection_;hit=true;}}
+    else if(screen_==Screen::Singleplayer){int n=(int)availableWorlds_.size();for(int row=0;row<5&&worldListOffset_+row<n;++row){float y=.31f-row*.13f;if(std::abs(nx)<=.48f&&ny>=y-.05f&&ny<=y+.05f){menuSelection_=worldListOffset_+row;selectedWorld_=menuSelection_;hit=true;}}
      if(nx>=-.19f&&nx<=.19f&&ny>=-.355f&&ny<=-.265f){menuSelection_=n;hit=true;}
      else if(nx>=-.44f&&nx<=-.06f&&ny>=-.475f&&ny<=-.385f){menuSelection_=n+1;hit=true;}
      else if(nx>=.06f&&nx<=.44f&&ny>=-.475f&&ny<=-.385f){menuSelection_=n+2;hit=true;}
