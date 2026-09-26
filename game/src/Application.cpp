@@ -1,7 +1,6 @@
 #include "projectmc/game/Application.hpp"
 #include "projectmc/Log.hpp"
 #include "projectmc/game/SdlRenderBackend.hpp"
-#include "projectmc/game/GpuRenderBackend.hpp"
 #include <chrono>
 #include <cmath>
 #include <utility>
@@ -38,15 +37,13 @@ bool Application::initialize(){
  if(!renderer_){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_CreateRenderer failed: ")+SDL_GetError());return false;}
  SDL_SetRenderVSync(renderer_,config_.vsync?1:0);
  {
-  auto gpu=std::make_unique<GpuRenderBackend>();
-  if(gpu->initialize(window_)) {
-   renderBackend_=std::move(gpu);
-  } else {
-   projectmc::log(projectmc::LogLevel::Warning,"Falling back to SDL compatibility renderer.");
-   auto fallback=std::make_unique<SdlRenderBackend>();
-   if(!fallback->initialize(window_)){projectmc::log(projectmc::LogLevel::Error,"Render backend initialisation failed.");return false;}
-   renderBackend_=std::move(fallback);
-  }
+  // SDL_Renderer owns the window presentation path for now. SDL_GPU cannot
+  // claim the same window/swapchain concurrently on Windows, so the GPU
+  // backend is kept compiled but is not activated until it can own the full
+  // frame (world + HUD + presentation).
+  auto fallback=std::make_unique<SdlRenderBackend>();
+  if(!fallback->initialize(window_)){projectmc::log(projectmc::LogLevel::Error,"Render backend initialisation failed.");return false;}
+  renderBackend_=std::move(fallback);
  }
  projectmc::log(projectmc::LogLevel::Info,std::string("Render backend: ")+renderBackend_->name());
  projectmc::log(projectmc::LogLevel::Info,"Creating texture atlas...");
@@ -116,7 +113,27 @@ void Application::processEvents(){
   }
  }
 }
-void Application::interact(bool place){auto h=raycastBlocks(world_,camera_);if(!h.hit)return;if(place)world_.setBlock(h.previousX,h.previousY,h.previousZ,selectedBlock_);else world_.setBlock(h.x,h.y,h.z,0);}
+void Application::interact(bool place){
+ auto h=raycastBlocks(world_,camera_);
+ if(!h.hit)return;
+ if(place){
+  const int bx=h.previousX,by=h.previousY,bz=h.previousZ;
+  const auto& def=world_.blocks().get(selectedBlock_);
+  if(def.solid){
+   constexpr float playerHalfWidth=.3f;
+   constexpr float playerHeight=1.8f;
+   const float pMinX=player_.position.x-playerHalfWidth,pMaxX=player_.position.x+playerHalfWidth;
+   const float pMinY=player_.position.y,pMaxY=player_.position.y+playerHeight;
+   const float pMinZ=player_.position.z-playerHalfWidth,pMaxZ=player_.position.z+playerHalfWidth;
+   const bool overlaps=
+    pMaxX>bx&&pMinX<bx+1.0f&&
+    pMaxY>by&&pMinY<by+1.0f&&
+    pMaxZ>bz&&pMinZ<bz+1.0f;
+   if(overlaps)return;
+  }
+  world_.setBlock(bx,by,bz,selectedBlock_);
+ }else world_.setBlock(h.x,h.y,h.z,0);
+}
 void Application::update(double dt){constexpr float mouseSensitivity=.09f;
  camera_.yaw+=input_.mouseDeltaX*mouseSensitivity;
  camera_.pitch-=input_.mouseDeltaY*mouseSensitivity;
