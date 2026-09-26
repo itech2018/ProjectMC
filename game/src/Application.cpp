@@ -1,6 +1,7 @@
 #include "projectmc/game/Application.hpp"
 #include "projectmc/Log.hpp"
 #include "projectmc/game/SdlRenderBackend.hpp"
+#include "projectmc/game/GpuRenderBackend.hpp"
 #include <chrono>
 #include <cmath>
 #include <utility>
@@ -36,8 +37,17 @@ bool Application::initialize(){
  renderer_=SDL_CreateRenderer(window_,nullptr);
  if(!renderer_){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_CreateRenderer failed: ")+SDL_GetError());return false;}
  SDL_SetRenderVSync(renderer_,config_.vsync?1:0);
- renderBackend_=std::make_unique<SdlRenderBackend>();
- if(!renderBackend_->initialize(window_)){projectmc::log(projectmc::LogLevel::Error,"Render backend initialisation failed.");return false;}
+ {
+  auto gpu=std::make_unique<GpuRenderBackend>();
+  if(gpu->initialize(window_)) {
+   renderBackend_=std::move(gpu);
+  } else {
+   projectmc::log(projectmc::LogLevel::Warning,"Falling back to SDL compatibility renderer.");
+   auto fallback=std::make_unique<SdlRenderBackend>();
+   if(!fallback->initialize(window_)){projectmc::log(projectmc::LogLevel::Error,"Render backend initialisation failed.");return false;}
+   renderBackend_=std::move(fallback);
+  }
+ }
  projectmc::log(projectmc::LogLevel::Info,std::string("Render backend: ")+renderBackend_->name());
  projectmc::log(projectmc::LogLevel::Info,"Creating texture atlas...");
  if(!atlas_.create(renderer_)){projectmc::log(projectmc::LogLevel::Error,std::string("Texture atlas failed: ")+SDL_GetError());return false;}
