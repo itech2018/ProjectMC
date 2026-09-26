@@ -131,8 +131,11 @@ bool Application::initialize(){
   if(y<0.0f){x=8;z=12;y=findSafeY(x,z);}
   if(y<0.0f)y=13.0f;
   player_.position={static_cast<float>(x)+0.5f,y,static_cast<float>(z)+0.5f};
-  player_.velocity={};camera_.position=player_.eyePosition();
-  projectmc::log(projectmc::LogLevel::Warning,"Recovered player from an invalid saved position.");
+  player_.velocity={};
+  camera_.yaw=0.0f;
+  camera_.pitch=-20.0f;
+  camera_.position=player_.eyePosition();
+  projectmc::log(projectmc::LogLevel::Warning,"Recovered player position and camera from an invalid save state.");
  };
  recoverPlayer();
  // Pump the window once before grabbing the mouse. On Windows this avoids capturing
