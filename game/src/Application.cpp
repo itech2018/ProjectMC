@@ -223,8 +223,11 @@ void Application::processEvents(){
     int w=0,h=0;SDL_GetWindowSizeInPixels(window_,&w,&h);float nx=e.button.x/w*2-1,ny=1-e.button.y/h*2;bool hit=false;
     if(screen_==Screen::Title){if(std::abs(nx)<=.32f&&ny>=.055f&&ny<=.185f){menuSelection_=0;hit=true;}else if(std::abs(nx)<=.32f&&ny>=-.145f&&ny<=-.015f){menuSelection_=1;hit=true;}}
     else if(screen_==Screen::Singleplayer){int n=(int)availableWorlds_.size();for(int row=0;row<5&&worldListOffset_+row<n;++row){float y=.31f-row*.13f;if(std::abs(nx)<=.48f&&ny>=y-.05f&&ny<=y+.05f){menuSelection_=worldListOffset_+row;worldListOffset_=menuSelection_;hit=true;}}
-     if(nx>=-.44f&&nx<=-.06f&&ny>=-.44f&&ny<=-.34f){menuSelection_=n;hit=true;}else if(nx>=.06f&&nx<=.44f&&ny>=-.44f&&ny<=-.34f){menuSelection_=n+1;hit=true;}
-     else if(nx>=-.44f&&nx<=-.06f&&ny>=-.58f&&ny<=-.48f){menuSelection_=n+3;hit=true;}else if(nx>=.06f&&nx<=.44f&&ny>=-.58f&&ny<=-.48f){menuSelection_=n+4;hit=true;}
+     if(nx>=-.19f&&nx<=.19f&&ny>=-.355f&&ny<=-.265f){menuSelection_=n;hit=true;}
+     else if(nx>=-.44f&&nx<=-.06f&&ny>=-.475f&&ny<=-.385f){menuSelection_=n+1;hit=true;}
+     else if(nx>=.06f&&nx<=.44f&&ny>=-.475f&&ny<=-.385f){menuSelection_=n+2;hit=true;}
+     else if(nx>=-.44f&&nx<=-.06f&&ny>=-.595f&&ny<=-.505f){menuSelection_=n+3;hit=true;}
+     else if(nx>=.06f&&nx<=.44f&&ny>=-.595f&&ny<=-.505f){menuSelection_=n+4;hit=true;}
     }else if(screen_==Screen::CreateWorld){if(std::abs(nx)<=.44f&&ny>=.145f&&ny<=.255f){createField_=0;hit=true;}else if(std::abs(nx)<=.44f&&ny>=-.015f&&ny<=.095f){createField_=1;hit=true;}else if(nx<0&&ny>=-.535f&&ny<=-.425f){createField_=2;hit=true;}else if(nx>=0&&ny>=-.535f&&ny<=-.425f){createField_=3;hit=true;}}
     else if(screen_==Screen::RenameWorld){if(std::abs(nx)<=.44f&&ny>=.105f&&ny<=.215f){hit=true;}else if(ny>=-.535f&&ny<=-.425f){confirmSelection_=nx<0?0:1;hit=true;}}
     else if(screen_==Screen::DeleteWorld&&ny>=-.535f&&ny<=-.425f){confirmSelection_=nx<0?0:1;hit=true;}
