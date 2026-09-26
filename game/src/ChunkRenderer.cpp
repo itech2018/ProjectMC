@@ -19,7 +19,8 @@ ChunkRenderer::Point ChunkRenderer::project(float x,float y,float z,const Camera
  if(dz<=.05f)return{};
  float f=(h*.5f)/std::tan(c.fieldOfView*pi/360);return{w*.5f+rx*f/dz,h*.5f-ry*f/dz,true};
 }
-void ChunkRenderer::render(SDL_Renderer*r,const world::Chunk&c,const world::ChunkPosition&pos,const world::BlockRegistry&reg,const TextureAtlas&atlas,const Camera&cam,int w,int h){
+void ChunkRenderer::render(SDL_Renderer*r,const world::Chunk&c,const world::ChunkPosition&pos,const world::World&world,const TextureAtlas&atlas,const Camera&cam,int w,int h){
+ const auto&reg=world.blocks();
  static constexpr std::array<P3,8> corners={{{0,0,0},{1,0,0},{1,1,0},{0,1,0},{0,0,1},{1,0,1},{1,1,1},{0,1,1}}};
  static constexpr int faces[6][4]={{0,3,2,1},{4,5,6,7},{0,4,7,3},{1,2,6,5},{3,7,6,2},{0,1,5,4}};
  static constexpr int n[6][3]={{0,0,-1},{0,0,1},{-1,0,0},{1,0,0},{0,1,0},{0,-1,0}};
@@ -28,7 +29,7 @@ void ChunkRenderer::render(SDL_Renderer*r,const world::Chunk&c,const world::Chun
  std::vector<Face> draw;
  for(int y=0;y<world::Chunk::Height;++y)for(int z=0;z<world::Chunk::Depth;++z)for(int x=0;x<world::Chunk::Width;++x){
   auto id=c.get(x,y,z);if(!id)continue;const auto&def=reg.get(id);
-  for(int f=0;f<6;++f){int nx=x+n[f][0],ny=y+n[f][1],nz=z+n[f][2];if(world::Chunk::inBounds(nx,ny,nz)){auto nid=c.get(nx,ny,nz);if(nid&&!reg.get(nid).transparent)continue;if(nid==id&&def.transparent)continue;}
+  for(int f=0;f<6;++f){int wx=pos.x*world::Chunk::Width+x,wy=pos.y*world::Chunk::Height+y,wz=pos.z*world::Chunk::Depth+z;auto nid=world.getBlock(wx+n[f][0],wy+n[f][1],wz+n[f][2]);if(nid&&!reg.get(nid).transparent)continue;if(nid==id&&def.transparent)continue;
    std::string_view tex=f==4?def.textures.top:(f==5?def.textures.bottom:def.textures.side);Face q{};q.uv=atlas.region(tex);q.shade=shade[f];q.water=def.material==world::BlockMaterial::Water;float d=0;bool ok=true;
    for(int i=0;i<4;++i){auto v=corners[faces[f][i]];auto p=project(pos.x*world::Chunk::Width+x+v.x,pos.y*world::Chunk::Height+y+v.y,pos.z*world::Chunk::Depth+z+v.z,cam,w,h);if(!p.valid){ok=false;break;}q.p[i]={p.x,p.y};float dx=pos.x*world::Chunk::Width+x+v.x-cam.position.x,dy=pos.y*world::Chunk::Height+y+v.y-cam.position.y,dz=pos.z*world::Chunk::Depth+z+v.z-cam.position.z;d+=dx*dx+dy*dy+dz*dz;}if(ok){q.depth=d/4;draw.push_back(q);}
   }
