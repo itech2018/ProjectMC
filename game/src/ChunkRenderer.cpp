@@ -184,6 +184,14 @@ void ChunkRenderer::syncGpuMeshes(GpuRenderBackend& backend) {
 }
 
 void ChunkRenderer::renderGpuWorld(GpuRenderBackend& backend,const Camera& cam,int w,int h) {
+ stats_={};
+ stats_.loadedChunks=meshes_.size();
+ for(const auto& [pos,mesh]:meshes_) {
+  stats_.opaqueQuads+=mesh.opaqueGpu.indices.size()/6;
+  stats_.transparentQuads+=mesh.transparentGpu.indices.size()/6;
+  stats_.gpuVertices+=mesh.opaqueGpu.vertices.size()+mesh.transparentGpu.vertices.size();
+  stats_.gpuTriangles+=(mesh.opaqueGpu.indices.size()+mesh.transparentGpu.indices.size())/3;
+ }
  if(!backend.worldPipelineReady()||w<=0||h<=0) return;
  const float yaw=cam.yaw*pi/180.0f;
  const float pitch=cam.pitch*pi/180.0f;
@@ -209,6 +217,7 @@ void ChunkRenderer::renderGpuWorld(GpuRenderBackend& backend,const Camera& cam,i
   const float sideLimit=std::max(cameraDepth,0.0f)*std::tan(halfHFov)+chunkRadius;
   if(std::abs(cameraRight)>sideLimit) continue;
   backend.drawIndexed(gpu.opaque);
+  ++stats_.renderedChunks;
   if(gpu.transparent.indexCount>0) {
    const float distanceSquared=dx*dx+dy*dy+dz*dz;
    transparentDraws.emplace_back(distanceSquared,&gpu);
