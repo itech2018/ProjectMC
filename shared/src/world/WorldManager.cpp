@@ -35,6 +35,16 @@ WorldEntry WorldManager::createWorld(const std::string& name,std::uint64_t seed)
  saveWorldMetadata((path/"level.meta").string(),metadata);
  return {id,path,metadata};
 }
+bool WorldManager::renameWorld(const WorldEntry& world,const std::string& name)const{
+ if(name.empty())return false;auto metadata=world.metadata;metadata.name=name;
+ return saveWorldMetadata((world.path/"level.meta").string(),metadata);
+}
+bool WorldManager::deleteWorld(const WorldEntry& world)const{
+ std::error_code ec;
+ const auto canonicalRoot=std::filesystem::weakly_canonical(root_,ec);if(ec)return false;
+ const auto canonicalWorld=std::filesystem::weakly_canonical(world.path,ec);if(ec||canonicalWorld.parent_path()!=canonicalRoot)return false;
+ return std::filesystem::remove_all(canonicalWorld,ec)>0&&!ec;
+}
 WorldEntry WorldManager::ensureDefaultWorld()const{
  auto worlds=listWorlds();if(!worlds.empty())return worlds.front();
  const auto seed=static_cast<std::uint64_t>(std::chrono::system_clock::now().time_since_epoch().count());
