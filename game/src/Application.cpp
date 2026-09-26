@@ -1,5 +1,6 @@
 #include "projectmc/game/Application.hpp"
 #include "projectmc/Log.hpp"
+#include "projectmc/game/SdlRenderBackend.hpp"
 #include <chrono>
 #include <cmath>
 #include <utility>
@@ -35,6 +36,9 @@ bool Application::initialize(){
  renderer_=SDL_CreateRenderer(window_,nullptr);
  if(!renderer_){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_CreateRenderer failed: ")+SDL_GetError());return false;}
  SDL_SetRenderVSync(renderer_,config_.vsync?1:0);
+ renderBackend_=std::make_unique<SdlRenderBackend>();
+ if(!renderBackend_->initialize(window_)){projectmc::log(projectmc::LogLevel::Error,"Render backend initialisation failed.");return false;}
+ projectmc::log(projectmc::LogLevel::Info,std::string("Render backend: ")+renderBackend_->name());
  projectmc::log(projectmc::LogLevel::Info,"Creating texture atlas...");
  if(!atlas_.create(renderer_)){projectmc::log(projectmc::LogLevel::Error,std::string("Texture atlas failed: ")+SDL_GetError());return false;}
  projectmc::log(projectmc::LogLevel::Info,"Generating spawn terrain...");
@@ -56,6 +60,8 @@ void Application::processEvents(){
  SDL_Event e;
  while(SDL_PollEvent(&e)){
   if(e.type==SDL_EVENT_QUIT)running_=false;
+
+  if(e.type==SDL_EVENT_WINDOW_RESIZED&&renderBackend_) renderBackend_->resize(e.window.data1,e.window.data2);
 
   if(e.type==SDL_EVENT_WINDOW_FOCUS_GAINED)
    SDL_SetWindowRelativeMouseMode(window_,true);
@@ -106,6 +112,6 @@ void Application::update(double dt){constexpr float mouseSensitivity=.09f;
  camera_.pitch-=input_.mouseDeltaY*mouseSensitivity;
  if(camera_.yaw>180.0f)camera_.yaw-=360.0f;
  if(camera_.yaw<-180.0f)camera_.yaw+=360.0f;if(camera_.pitch>89)camera_.pitch=89;if(camera_.pitch<-89)camera_.pitch=-89;player_.update(dt,input_,world_,camera_.yaw);camera_.position=player_.eyePosition();world_.updateStreaming(player_.position.x,player_.position.z,2);if(input_.hotbarSelection>=0){selectedSlot_=input_.hotbarSelection;const char* names[5]={"stone","dirt","grass","sand","water"};selectedBlock_=world_.blocks().id(names[selectedSlot_]);}if(input_.removeBlock)interact(false);if(input_.placeBlock)interact(true);}
-void Application::render(){chunkRenderer_.syncMeshes(world_,atlas_);SDL_SetRenderDrawColor(renderer_,105,175,230,255);SDL_RenderClear(renderer_);int w=0,h=0;SDL_GetRenderOutputSize(renderer_,&w,&h);chunkRenderer_.renderWorld(renderer_,world_,atlas_,camera_,w,h);auto hit=raycastBlocks(world_,camera_);if(hit.hit)chunkRenderer_.renderSelection(renderer_,hit.x,hit.y,hit.z,camera_,w,h);const float slot=42,gap=4,total=5*slot+4*gap,start=w*.5f-total*.5f,y=h-58;for(int i=0;i<5;++i){SDL_FRect box{start+i*(slot+gap),y,slot,slot};if(i==selectedSlot_)SDL_SetRenderDrawColor(renderer_,255,255,255,255);else SDL_SetRenderDrawColor(renderer_,70,70,70,220);SDL_RenderRect(renderer_,&box);SDL_FRect inner{box.x+5,box.y+5,box.w-10,box.h-10};switch(i){case 0:SDL_SetRenderDrawColor(renderer_,120,120,125,255);break;case 1:SDL_SetRenderDrawColor(renderer_,120,80,50,255);break;case 2:SDL_SetRenderDrawColor(renderer_,90,155,70,255);break;case 3:SDL_SetRenderDrawColor(renderer_,210,195,135,255);break;default:SDL_SetRenderDrawColor(renderer_,60,120,210,255);}SDL_RenderFillRect(renderer_,&inner);}SDL_SetRenderDrawColor(renderer_,255,255,255,255);SDL_RenderLine(renderer_,w/2-6,h/2,w/2+6,h/2);SDL_RenderLine(renderer_,w/2,h/2-6,w/2,h/2+6);SDL_RenderPresent(renderer_);}
+void Application::render(){chunkRenderer_.syncMeshes(world_,atlas_);if(renderBackend_)renderBackend_->beginFrame(camera_);SDL_SetRenderDrawColor(renderer_,105,175,230,255);SDL_RenderClear(renderer_);int w=0,h=0;SDL_GetRenderOutputSize(renderer_,&w,&h);chunkRenderer_.renderWorld(renderer_,world_,atlas_,camera_,w,h);auto hit=raycastBlocks(world_,camera_);if(hit.hit)chunkRenderer_.renderSelection(renderer_,hit.x,hit.y,hit.z,camera_,w,h);const float slot=42,gap=4,total=5*slot+4*gap,start=w*.5f-total*.5f,y=h-58;for(int i=0;i<5;++i){SDL_FRect box{start+i*(slot+gap),y,slot,slot};if(i==selectedSlot_)SDL_SetRenderDrawColor(renderer_,255,255,255,255);else SDL_SetRenderDrawColor(renderer_,70,70,70,220);SDL_RenderRect(renderer_,&box);SDL_FRect inner{box.x+5,box.y+5,box.w-10,box.h-10};switch(i){case 0:SDL_SetRenderDrawColor(renderer_,120,120,125,255);break;case 1:SDL_SetRenderDrawColor(renderer_,120,80,50,255);break;case 2:SDL_SetRenderDrawColor(renderer_,90,155,70,255);break;case 3:SDL_SetRenderDrawColor(renderer_,210,195,135,255);break;default:SDL_SetRenderDrawColor(renderer_,60,120,210,255);}SDL_RenderFillRect(renderer_,&inner);}SDL_SetRenderDrawColor(renderer_,255,255,255,255);SDL_RenderLine(renderer_,w/2-6,h/2,w/2+6,h/2);SDL_RenderLine(renderer_,w/2,h/2-6,w/2,h/2+6);SDL_RenderPresent(renderer_);if(renderBackend_)renderBackend_->endFrame();}
 int Application::run(){using C=std::chrono::steady_clock;auto p=C::now();while(running_){auto n=C::now();std::chrono::duration<double>d=n-p;p=n;processEvents();update(d.count());render();}return 0;}
 }
