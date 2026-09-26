@@ -170,77 +170,58 @@ void Application::loadWorldEntry(const world::WorldEntry& entry){
  screen_=Screen::Playing;SDL_SetWindowRelativeMouseMode(window_,true);
 }
 void Application::activateMenuSelection(){
- if(screen_==Screen::Title){
-  if(menuSelection_==0){screen_=Screen::Singleplayer;menuSelection_=0;}
-  else running_=false;return;
- }
+ if(screen_==Screen::Title){if(menuSelection_==0){screen_=Screen::Singleplayer;menuSelection_=0;worldListOffset_=0;}else running_=false;return;}
  if(screen_==Screen::Singleplayer){
-  if(menuSelection_<(int)availableWorlds_.size()){loadWorldEntry(availableWorlds_[menuSelection_]);return;}
-  if(menuSelection_==(int)availableWorlds_.size()){screen_=Screen::CreateWorld;createField_=0;SDL_StartTextInput(window_);return;}
-  screen_=Screen::Title;menuSelection_=0;return;
+  const int n=(int)availableWorlds_.size();
+  if(menuSelection_<n){loadWorldEntry(availableWorlds_[menuSelection_]);return;}
+  const int action=menuSelection_-n;
+  if(action==0){screen_=Screen::CreateWorld;createField_=0;createWorldName_="New World";createWorldSeed_.clear();SDL_StartTextInput(window_);}
+  else if(action==1&&n){renameWorldName_=availableWorlds_[std::clamp(menuSelection_-(n+1),0,n-1)].metadata.name;screen_=Screen::RenameWorld;SDL_StartTextInput(window_);}
+  else if(action==2&&n){screen_=Screen::DeleteWorld;confirmSelection_=1;}
+  else {screen_=Screen::Title;menuSelection_=0;}return;
  }
  if(screen_==Screen::CreateWorld){
-  if(createField_==2){
-   std::uint64_t seed=0;
-   if(!createWorldSeed_.empty()){try{seed=std::stoull(createWorldSeed_);}catch(...){seed=0;}}
-   if(seed==0)seed=static_cast<std::uint64_t>(SDL_GetTicksNS());
-   world::WorldManager manager("saves");auto entry=manager.createWorld(createWorldName_.empty()?"New World":createWorldName_,seed);
-   availableWorlds_=manager.listWorlds();SDL_StopTextInput(window_);loadWorldEntry(entry);return;
-  }
-  if(createField_==3){SDL_StopTextInput(window_);screen_=Screen::Singleplayer;menuSelection_=0;return;}
+  if(createField_==2){std::uint64_t seed=0;if(!createWorldSeed_.empty())try{seed=std::stoull(createWorldSeed_);}catch(...){}
+   if(!seed)seed=(std::uint64_t)SDL_GetTicksNS();world::WorldManager m("saves");auto entry=m.createWorld(createWorldName_.empty()?"New World":createWorldName_,seed);
+   availableWorlds_=m.listWorlds();SDL_StopTextInput(window_);loadWorldEntry(entry);}
+  else if(createField_==3){SDL_StopTextInput(window_);screen_=Screen::Singleplayer;}return;
+ }
+ if(screen_==Screen::RenameWorld){
+  if(confirmSelection_==0&&!availableWorlds_.empty()){world::WorldManager m("saves");const int i=std::clamp(menuSelection_,0,(int)availableWorlds_.size()-1);m.renameWorld(availableWorlds_[i],renameWorldName_);availableWorlds_=m.listWorlds();}
+  SDL_StopTextInput(window_);screen_=Screen::Singleplayer;return;
+ }
+ if(screen_==Screen::DeleteWorld){
+  if(confirmSelection_==0&&!availableWorlds_.empty()){world::WorldManager m("saves");const int i=std::clamp(menuSelection_,0,(int)availableWorlds_.size()-1);m.deleteWorld(availableWorlds_[i]);availableWorlds_=m.listWorlds();menuSelection_=std::max(0,std::min(i,(int)availableWorlds_.size()-1));}
+  screen_=Screen::Singleplayer;return;
  }
 }
 void Application::processEvents(){
- input_.mouseDeltaX=input_.mouseDeltaY=0;input_.removeBlock=input_.placeBlock=false;input_.hotbarSelection=-1;
- SDL_Event e;
+ input_.mouseDeltaX=input_.mouseDeltaY=0;input_.removeBlock=input_.placeBlock=false;input_.hotbarSelection=-1;SDL_Event e;
  while(SDL_PollEvent(&e)){
-  if(e.type==SDL_EVENT_QUIT){running_=false;continue;}
-  if(e.type==SDL_EVENT_WINDOW_RESIZED&&renderBackend_)renderBackend_->resize(e.window.data1,e.window.data2);
+  if(e.type==SDL_EVENT_QUIT){running_=false;continue;}if(e.type==SDL_EVENT_WINDOW_RESIZED&&renderBackend_)renderBackend_->resize(e.window.data1,e.window.data2);
   if(e.type==SDL_EVENT_WINDOW_FOCUS_GAINED&&screen_==Screen::Playing)SDL_SetWindowRelativeMouseMode(window_,true);
   if(e.type==SDL_EVENT_WINDOW_FOCUS_LOST){SDL_SetWindowRelativeMouseMode(window_,false);input_.forward=input_.backward=input_.left=input_.right=input_.jump=input_.descend=input_.sprint=false;}
-
   if(screen_!=Screen::Playing){
-   if(e.type==SDL_EVENT_TEXT_INPUT&&screen_==Screen::CreateWorld){
-    std::string& field=createField_==0?createWorldName_:createWorldSeed_;
-    if(createField_<2){std::string add=e.text.text;if(createField_==1)add.erase(std::remove_if(add.begin(),add.end(),[](unsigned char ch){return !std::isdigit(ch);}),add.end());if(field.size()+add.size()<=32)field+=add;}
+   if(e.type==SDL_EVENT_TEXT_INPUT){
+    if(screen_==Screen::CreateWorld&&createField_<2){auto& f=createField_==0?createWorldName_:createWorldSeed_;std::string add=e.text.text;if(createField_==1)add.erase(std::remove_if(add.begin(),add.end(),[](unsigned char ch){return !std::isdigit(ch);}),add.end());if(f.size()+add.size()<=32)f+=add;}
+    else if(screen_==Screen::RenameWorld&&renameWorldName_.size()<32)renameWorldName_+=e.text.text;
    }
+   if(e.type==SDL_EVENT_MOUSE_WHEEL&&screen_==Screen::Singleplayer&&!availableWorlds_.empty()){menuSelection_=std::clamp(menuSelection_-(int)e.wheel.y,0,(int)availableWorlds_.size()-1);}
    if(e.type==SDL_EVENT_KEY_DOWN&&!e.key.repeat){
-    if(screen_==Screen::CreateWorld){
-     if(e.key.key==SDLK_TAB||e.key.key==SDLK_DOWN){createField_=(createField_+1)%4;}
-     if(e.key.key==SDLK_UP){createField_=(createField_+3)%4;}
-     if(e.key.key==SDLK_BACKSPACE&&createField_<2){auto& f=createField_==0?createWorldName_:createWorldSeed_;if(!f.empty())f.pop_back();}
-     if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER){if(createField_<2)++createField_;else activateMenuSelection();}
-     if(e.key.key==SDLK_ESCAPE){SDL_StopTextInput(window_);screen_=Screen::Singleplayer;menuSelection_=0;}
-    }else{
-     const int maxItem=screen_==Screen::Title?1:(int)availableWorlds_.size()+1;
-     if(e.key.key==SDLK_UP||e.key.key==SDLK_W)menuSelection_=std::max(0,menuSelection_-1);
-     if(e.key.key==SDLK_DOWN||e.key.key==SDLK_S)menuSelection_=std::min(maxItem,menuSelection_+1);
-     if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER)activateMenuSelection();
-     if(e.key.key==SDLK_ESCAPE){if(screen_==Screen::Singleplayer){screen_=Screen::Title;menuSelection_=0;}else running_=false;}
-    }
+    if(screen_==Screen::CreateWorld){if(e.key.key==SDLK_TAB||e.key.key==SDLK_DOWN)createField_=(createField_+1)%4;if(e.key.key==SDLK_UP)createField_=(createField_+3)%4;if(e.key.key==SDLK_BACKSPACE&&createField_<2){auto&f=createField_==0?createWorldName_:createWorldSeed_;if(!f.empty())f.pop_back();}if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER){if(createField_<2)++createField_;else activateMenuSelection();}if(e.key.key==SDLK_ESCAPE){SDL_StopTextInput(window_);screen_=Screen::Singleplayer;}}
+    else if(screen_==Screen::RenameWorld){if(e.key.key==SDLK_BACKSPACE&&!renameWorldName_.empty())renameWorldName_.pop_back();if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER){confirmSelection_=0;activateMenuSelection();}if(e.key.key==SDLK_ESCAPE){confirmSelection_=1;activateMenuSelection();}}
+    else if(screen_==Screen::DeleteWorld){if(e.key.key==SDLK_LEFT||e.key.key==SDLK_RIGHT||e.key.key==SDLK_TAB)confirmSelection_=1-confirmSelection_;if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER)activateMenuSelection();if(e.key.key==SDLK_ESCAPE){confirmSelection_=1;activateMenuSelection();}}
+    else {const int maxItem=screen_==Screen::Title?1:(int)availableWorlds_.size()+3;if(e.key.key==SDLK_UP||e.key.key==SDLK_W)menuSelection_=std::max(0,menuSelection_-1);if(e.key.key==SDLK_DOWN||e.key.key==SDLK_S)menuSelection_=std::min(maxItem,menuSelection_+1);if(e.key.key==SDLK_RETURN||e.key.key==SDLK_KP_ENTER)activateMenuSelection();if(e.key.key==SDLK_ESCAPE){if(screen_==Screen::Singleplayer){screen_=Screen::Title;menuSelection_=0;}else running_=false;}}
    }
-   if(e.type==SDL_EVENT_MOUSE_MOTION){
-    int w=0,h=0;SDL_GetWindowSizeInPixels(window_,&w,&h);const float nx=e.motion.x/w*2.0f-1.0f,ny=1.0f-e.motion.y/h*2.0f;
+   if(screen_==Screen::Singleplayer&&menuSelection_<(int)availableWorlds_.size()){if(menuSelection_<worldListOffset_)worldListOffset_=menuSelection_;if(menuSelection_>=worldListOffset_+5)worldListOffset_=menuSelection_-4;}
+   if(e.type==SDL_EVENT_MOUSE_MOTION){int w=0,h=0;SDL_GetWindowSizeInPixels(window_,&w,&h);float nx=e.motion.x/w*2-1,ny=1-e.motion.y/h*2;
     if(screen_==Screen::Title){if(std::abs(nx)<=.30f&&ny>=.055f&&ny<=.185f)menuSelection_=0;else if(std::abs(nx)<=.30f&&ny>=-.145f&&ny<=-.015f)menuSelection_=1;}
-    else if(screen_==Screen::Singleplayer){
-     for(int i=0;i<std::min(5,(int)availableWorlds_.size());++i){float y=.22f-i*.15f;if(std::abs(nx)<=.34f&&ny>=y-.052f&&ny<=y+.052f)menuSelection_=i;}
-     if(ny>=-.525f&&ny<=-.415f){if(nx>=-.33f&&nx<=-.03f)menuSelection_=(int)availableWorlds_.size();else if(nx>=.03f&&nx<=.33f)menuSelection_=(int)availableWorlds_.size()+1;}
-    }else if(screen_==Screen::CreateWorld){
-     if(std::abs(nx)<=.34f&&ny>=.13f&&ny<=.23f)createField_=0;
-     else if(std::abs(nx)<=.34f&&ny>=-.02f&&ny<=.08f)createField_=1;
-     else if(ny>=-.525f&&ny<=-.415f){if(nx<0)createField_=2;else createField_=3;}
-    }
+    else if(screen_==Screen::Singleplayer){for(int row=0;row<5&&worldListOffset_+row<(int)availableWorlds_.size();++row){float y=.22f-row*.15f;if(std::abs(nx)<=.34f&&ny>=y-.052f&&ny<=y+.052f)menuSelection_=worldListOffset_+row;}}
    }
-   if(e.type==SDL_EVENT_MOUSE_BUTTON_DOWN&&e.button.button==SDL_BUTTON_LEFT)activateMenuSelection();
-   continue;
+   if(e.type==SDL_EVENT_MOUSE_BUTTON_DOWN&&e.button.button==SDL_BUTTON_LEFT)activateMenuSelection();continue;
   }
-
-  if(e.type==SDL_EVENT_KEY_DOWN||e.type==SDL_EVENT_KEY_UP){const bool down=e.type==SDL_EVENT_KEY_DOWN;
-   switch(e.key.scancode){case SDL_SCANCODE_W:input_.forward=down;break;case SDL_SCANCODE_S:input_.backward=down;break;case SDL_SCANCODE_A:input_.left=down;break;case SDL_SCANCODE_D:input_.right=down;break;case SDL_SCANCODE_SPACE:input_.jump=down;break;case SDL_SCANCODE_LCTRL:case SDL_SCANCODE_RCTRL:input_.descend=down;break;case SDL_SCANCODE_LSHIFT:case SDL_SCANCODE_RSHIFT:input_.sprint=down;break;default:break;}
-   if(down&&!e.key.repeat){if(e.key.key==SDLK_ESCAPE)leaveWorldToMenu();if(e.key.key>=SDLK_1&&e.key.key<=SDLK_5)input_.hotbarSelection=(int)(e.key.key-SDLK_1);}
-  }
-  if(e.type==SDL_EVENT_MOUSE_MOTION){input_.mouseDeltaX+=e.motion.xrel;input_.mouseDeltaY+=e.motion.yrel;}
-  if(e.type==SDL_EVENT_MOUSE_BUTTON_DOWN){if(e.button.button==SDL_BUTTON_LEFT)input_.removeBlock=true;if(e.button.button==SDL_BUTTON_RIGHT)input_.placeBlock=true;}
+  if(e.type==SDL_EVENT_KEY_DOWN||e.type==SDL_EVENT_KEY_UP){bool down=e.type==SDL_EVENT_KEY_DOWN;switch(e.key.scancode){case SDL_SCANCODE_W:input_.forward=down;break;case SDL_SCANCODE_S:input_.backward=down;break;case SDL_SCANCODE_A:input_.left=down;break;case SDL_SCANCODE_D:input_.right=down;break;case SDL_SCANCODE_SPACE:input_.jump=down;break;case SDL_SCANCODE_LCTRL:case SDL_SCANCODE_RCTRL:input_.descend=down;break;case SDL_SCANCODE_LSHIFT:case SDL_SCANCODE_RSHIFT:input_.sprint=down;break;default:break;}if(down&&!e.key.repeat){if(e.key.key==SDLK_ESCAPE)leaveWorldToMenu();if(e.key.key>=SDLK_1&&e.key.key<=SDLK_5)input_.hotbarSelection=(int)(e.key.key-SDLK_1);}}
+  if(e.type==SDL_EVENT_MOUSE_MOTION){input_.mouseDeltaX+=e.motion.xrel;input_.mouseDeltaY+=e.motion.yrel;}if(e.type==SDL_EVENT_MOUSE_BUTTON_DOWN){if(e.button.button==SDL_BUTTON_LEFT)input_.removeBlock=true;if(e.button.button==SDL_BUTTON_RIGHT)input_.placeBlock=true;}
  }
 }
 void Application::interact(bool place){
