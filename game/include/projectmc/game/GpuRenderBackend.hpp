@@ -21,6 +21,14 @@ public:
  [[nodiscard]] SDL_GPUDevice* device() const noexcept { return device_; }
  [[nodiscard]] const CameraMatrices& matrices() const noexcept { return matrices_; }
 
+ struct BufferPair {
+  SDL_GPUBuffer* vertex{nullptr};
+  SDL_GPUBuffer* index{nullptr};
+  Uint32 indexCount{0};
+ };
+ bool uploadMesh(const void* vertices,Uint32 vertexBytes,const void* indices,Uint32 indexBytes,Uint32 indexCount,BufferPair& out);
+ void releaseMesh(BufferPair& mesh);
+
 private:
  void destroyDepthTarget();
  bool createDepthTarget();
