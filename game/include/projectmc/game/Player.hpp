@@ -5,7 +5,7 @@
 namespace projectmc::game {
 class Player {
 public:
- Vec3 position{8.0f,8.0f,12.0f};
+ Vec3 position{8.0f,13.0f,12.0f};
  Vec3 velocity{};
  bool grounded{false};
  void update(double dt,const InputState& input,const world::World& world,float yaw);
