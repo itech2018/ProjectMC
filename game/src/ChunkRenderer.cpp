@@ -76,6 +76,7 @@ void ChunkRenderer::rebuildMesh(const world::ChunkPosition& pos,const world::Chu
    }
   }
  }
+ mesh.revision=nextRevision_++;
  meshes_.insert_or_assign(pos,std::move(mesh));
 }
 
@@ -89,6 +90,74 @@ void ChunkRenderer::syncMeshes(world::World& world,const TextureAtlas& atlas) {
    rebuildMesh(pos,chunk,world,atlas);
    world.clearDirty(pos);
   }
+ }
+}
+
+void ChunkRenderer::releaseGpuMeshes(GpuRenderBackend& backend) {
+ for(auto& [pos,mesh]:gpuMeshes_) {
+  backend.releaseMesh(mesh.opaque);
+  backend.releaseMesh(mesh.transparent);
+ }
+ gpuMeshes_.clear();
+}
+
+void ChunkRenderer::syncGpuMeshes(GpuRenderBackend& backend) {
+ std::vector<world::ChunkPosition> stale;
+ for(const auto& [pos,gpu]:gpuMeshes_) if(!meshes_.contains(pos)) stale.push_back(pos);
+ for(const auto& pos:stale) {
+  auto it=gpuMeshes_.find(pos);
+  if(it!=gpuMeshes_.end()) {
+   backend.releaseMesh(it->second.opaque);
+   backend.releaseMesh(it->second.transparent);
+   gpuMeshes_.erase(it);
+  }
+ }
+
+ for(const auto& [pos,cpu]:meshes_) {
+  auto& gpu=gpuMeshes_[pos];
+  if(gpu.revision==cpu.revision) continue;
+  backend.releaseMesh(gpu.opaque);
+  backend.releaseMesh(gpu.transparent);
+
+  const auto upload=[&](const IndexedMesh& source,GpuRenderBackend::BufferPair& target) {
+   if(source.vertices.empty()||source.indices.empty()) return;
+   backend.uploadMesh(source.vertices.data(),
+    static_cast<Uint32>(source.vertices.size()*sizeof(GpuVertex)),
+    source.indices.data(),
+    static_cast<Uint32>(source.indices.size()*sizeof(unsigned int)),
+    static_cast<Uint32>(source.indices.size()),target);
+  };
+  upload(cpu.opaqueGpu,gpu.opaque);
+  upload(cpu.transparentGpu,gpu.transparent);
+  gpu.revision=cpu.revision;
+ }
+}
+
+void ChunkRenderer::renderGpuWorld(GpuRenderBackend& backend,const Camera& cam,int w,int h) {
+ if(!backend.worldPipelineReady()||w<=0||h<=0) return;
+ const float yaw=cam.yaw*pi/180.0f;
+ const float pitch=cam.pitch*pi/180.0f;
+ const float forwardX=std::cos(yaw),forwardZ=std::sin(yaw);
+ const float rightX=-forwardZ,rightZ=forwardX;
+ const float cp=std::cos(pitch),sp=std::sin(pitch);
+ const float halfHFov=std::atan(std::tan(cam.fieldOfView*pi/360.0f)*(static_cast<float>(w)/static_cast<float>(h)));
+
+ for(const auto& [pos,gpu]:gpuMeshes_) {
+  const float minX=static_cast<float>(pos.x*world::Chunk::Width);
+  const float minY=static_cast<float>(pos.y*world::Chunk::Height);
+  const float minZ=static_cast<float>(pos.z*world::Chunk::Depth);
+  const float centerX=minX+world::Chunk::Width*.5f;
+  const float centerY=minY+world::Chunk::Height*.5f;
+  const float centerZ=minZ+world::Chunk::Depth*.5f;
+  const float dx=centerX-cam.position.x,dy=centerY-cam.position.y,dz=centerZ-cam.position.z;
+  const float horizontal=dx*forwardX+dz*forwardZ;
+  const float cameraDepth=dy*sp+horizontal*cp;
+  constexpr float chunkRadius=13.9f;
+  if(cameraDepth < -chunkRadius) continue;
+  const float cameraRight=dx*rightX+dz*rightZ;
+  const float sideLimit=std::max(cameraDepth,0.0f)*std::tan(halfHFov)+chunkRadius;
+  if(std::abs(cameraRight)>sideLimit) continue;
+  backend.drawIndexed(gpu.opaque);
  }
 }
 
