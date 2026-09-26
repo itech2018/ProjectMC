@@ -30,7 +30,6 @@ bool Application::initialize(){
  window_=SDL_CreateWindow(config_.title.c_str(),config_.width,config_.height,f);
  if(!window_){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_CreateWindow failed: ")+SDL_GetError());return false;}
  SDL_ShowWindow(window_);SDL_RaiseWindow(window_);
- SDL_SetWindowKeyboardGrab(window_,true);
  projectmc::log(projectmc::LogLevel::Info,std::string("Keyboard focus after window creation: ")+(SDL_GetKeyboardFocus()==window_?"yes":"no"));
  projectmc::log(projectmc::LogLevel::Info,"Creating renderer...");
  renderer_=SDL_CreateRenderer(window_,nullptr);
@@ -62,6 +61,7 @@ void Application::processEvents(){
    SDL_SetWindowRelativeMouseMode(window_,true);
 
   if(e.type==SDL_EVENT_WINDOW_FOCUS_LOST){
+   SDL_SetWindowRelativeMouseMode(window_,false);
    input_.mouseDeltaX=input_.mouseDeltaY=0;
    input_.forward=input_.backward=input_.left=input_.right=false;
    input_.jump=input_.descend=input_.sprint=false;
