@@ -3,6 +3,7 @@
 #include "projectmc/game/SdlRenderBackend.hpp"
 #include "projectmc/game/GpuRenderBackend.hpp"
 #include "projectmc/world/WorldMetadata.hpp"
+#include "projectmc/world/WorldManager.hpp"
 #include <chrono>
 #include <cmath>
 #include <utility>
@@ -13,13 +14,13 @@ constexpr float PI=3.14159265358979323846f;
 Application::Application(projectmc::GameConfig c):config_(std::move(c)){}
 Application::~Application(){
  world::WorldMetadata metadata;
- metadata.name="Development World";metadata.seed=world_.seed();
+ metadata.name=worldName_;metadata.seed=world_.seed();
  metadata.playerX=player_.position.x;metadata.playerY=player_.position.y;metadata.playerZ=player_.position.z;
  metadata.yaw=camera_.yaw;metadata.pitch=camera_.pitch;
- if(!world::saveWorldMetadata("saves/dev-world/level.meta",metadata))
+ if(worldPath_.empty()||!world::saveWorldMetadata((worldPath_/"level.meta").string(),metadata))
   projectmc::log(projectmc::LogLevel::Warning,"Could not save world metadata.");
  if(world_.overrideCount()>0) {
-  if(world_.saveOverrides("saves/dev-world/world.pmc"))
+  if(!worldPath_.empty()&&world_.saveOverrides((worldPath_/"world.pmc").string()))
    projectmc::log(projectmc::LogLevel::Info,"Saved "+std::to_string(world_.overrideCount())+" world block override(s).");
   else projectmc::log(projectmc::LogLevel::Warning,"Could not save world overrides.");
  }
@@ -82,19 +83,24 @@ bool Application::initialize(){
  }else{
   if(!atlas_.create(renderer_)){projectmc::log(projectmc::LogLevel::Error,std::string("Texture atlas failed: ")+SDL_GetError());return false;}
  }
- projectmc::log(projectmc::LogLevel::Info,"Loading development world...");
+ projectmc::log(projectmc::LogLevel::Info,"Discovering worlds...");
+ world::WorldManager worldManager("saves");
+ const auto selectedWorld=worldManager.ensureDefaultWorld();
+ worldPath_=selectedWorld.path;worldName_=selectedWorld.metadata.name;
+ projectmc::log(projectmc::LogLevel::Info,"Loading world: "+worldName_+" ["+selectedWorld.id+"].");
  world::WorldMetadata metadata;
- if(world::loadWorldMetadata("saves/dev-world/level.meta",metadata)) {
+ if(world::loadWorldMetadata((worldPath_/"level.meta").string(),metadata)) {
   world_.setSeed(metadata.seed);
   player_.position={metadata.playerX,metadata.playerY,metadata.playerZ};
   camera_.yaw=metadata.yaw;camera_.pitch=metadata.pitch;
   projectmc::log(projectmc::LogLevel::Info,"Loaded world metadata: "+metadata.name+" (seed "+std::to_string(metadata.seed)+").");
  } else {
   world_.setSeed(metadata.seed);
-  projectmc::log(projectmc::LogLevel::Info,"No world metadata found; creating Development World.");
-  world::saveWorldMetadata("saves/dev-world/level.meta",metadata);
+  projectmc::log(projectmc::LogLevel::Warning,"Selected world metadata could not be loaded; using defaults.");
+  metadata.name=worldName_;
+  world::saveWorldMetadata((worldPath_/"level.meta").string(),metadata);
  }
- if(world_.loadOverrides("saves/dev-world/world.pmc"))
+ if(world_.loadOverrides((worldPath_/"world.pmc").string()))
   projectmc::log(projectmc::LogLevel::Info,"Loaded "+std::to_string(world_.overrideCount())+" saved block override(s).");
  else
   projectmc::log(projectmc::LogLevel::Info,"No existing development save found; starting fresh.");
