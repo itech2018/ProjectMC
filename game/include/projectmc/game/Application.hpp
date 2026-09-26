@@ -12,6 +12,8 @@
 #include <filesystem>
 #include <string>
 #include "projectmc/world/World.hpp"
+#include "projectmc/world/WorldManager.hpp"
+#include <vector>
 namespace projectmc::game {
 class Application {
 public:
@@ -19,6 +21,7 @@ public:
  Application(const Application&)=delete;Application& operator=(const Application&)=delete;
  bool initialize();int run();
 private:
+ enum class Screen { Title, Singleplayer, Playing };
  void processEvents();void update(double dt);void render();void interact(bool place);
  projectmc::GameConfig config_;SDL_Window* window_{nullptr};SDL_Renderer* renderer_{nullptr};std::unique_ptr<RenderBackend> renderBackend_;
  InputState input_{};Camera camera_{};Player player_{};TextureAtlas atlas_{};ChunkRenderer chunkRenderer_{};world::World world_{};
@@ -31,5 +34,8 @@ private:
   double displayedFps_{0.0};
   std::filesystem::path worldPath_{};
   std::string worldName_{"Development World"};
+  Screen screen_{Screen::Title};
+  int menuSelection_{0};
+  std::vector<world::WorldEntry> availableWorlds_{};
 };
 }
