@@ -13,17 +13,7 @@ namespace projectmc::game {
 constexpr float PI=3.14159265358979323846f;
 Application::Application(projectmc::GameConfig c):config_(std::move(c)){}
 Application::~Application(){
- world::WorldMetadata metadata;
- metadata.name=worldName_;metadata.seed=world_.seed();
- metadata.playerX=player_.position.x;metadata.playerY=player_.position.y;metadata.playerZ=player_.position.z;
- metadata.yaw=camera_.yaw;metadata.pitch=camera_.pitch;
- if(worldPath_.empty()||!world::saveWorldMetadata((worldPath_/"level.meta").string(),metadata))
-  projectmc::log(projectmc::LogLevel::Warning,"Could not save world metadata.");
- if(world_.overrideCount()>0) {
-  if(!worldPath_.empty()&&world_.saveOverrides((worldPath_/"world.pmc").string()))
-   projectmc::log(projectmc::LogLevel::Info,"Saved "+std::to_string(world_.overrideCount())+" world block override(s).");
-  else projectmc::log(projectmc::LogLevel::Warning,"Could not save world overrides.");
- }
+ saveCurrentWorld();
  if(auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get()))
   chunkRenderer_.releaseGpuMeshes(*gpu);
  renderBackend_.reset();
@@ -150,10 +140,31 @@ bool Application::initialize(){
  projectmc::log(projectmc::LogLevel::Info,"Game initialised - entering main loop.");
  return true;
 }
+void Application::saveCurrentWorld(){
+ if(worldPath_.empty())return;
+ world::WorldMetadata metadata;metadata.name=worldName_;metadata.seed=world_.seed();
+ metadata.playerX=player_.position.x;metadata.playerY=player_.position.y;metadata.playerZ=player_.position.z;
+ metadata.yaw=camera_.yaw;metadata.pitch=camera_.pitch;
+ if(!world::saveWorldMetadata((worldPath_/"level.meta").string(),metadata))
+  projectmc::log(projectmc::LogLevel::Warning,"Could not save world metadata: "+worldName_);
+ if(!world_.saveOverrides((worldPath_/"world.pmc").string()))
+  projectmc::log(projectmc::LogLevel::Warning,"Could not save world overrides: "+worldName_);
+ else projectmc::log(projectmc::LogLevel::Info,"Saved world: "+worldName_+".");
+}
+void Application::leaveWorldToMenu(){
+ saveCurrentWorld();
+ if(auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get()))chunkRenderer_.releaseGpuMeshes(*gpu);
+ world::WorldManager manager("saves");availableWorlds_=manager.listWorlds();
+ screen_=Screen::Title;menuSelection_=0;SDL_SetWindowRelativeMouseMode(window_,false);
+}
 void Application::loadWorldEntry(const world::WorldEntry& entry){
- worldPath_=entry.path;worldName_=entry.metadata.name;world_.setSeed(entry.metadata.seed);
- player_.position={entry.metadata.playerX,entry.metadata.playerY,entry.metadata.playerZ};
- camera_.yaw=entry.metadata.yaw;camera_.pitch=entry.metadata.pitch;camera_.position=player_.eyePosition();
+ if(screen_==Screen::Playing)saveCurrentWorld();
+ if(auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get()))chunkRenderer_.releaseGpuMeshes(*gpu);
+ worldPath_=entry.path;worldName_=entry.metadata.name;world_.reset(entry.metadata.seed);
+ world::WorldMetadata metadata=entry.metadata;
+ world::loadWorldMetadata((worldPath_/"level.meta").string(),metadata);
+ player_.position={metadata.playerX,metadata.playerY,metadata.playerZ};player_.velocity={};
+ camera_.yaw=metadata.yaw;camera_.pitch=metadata.pitch;camera_.position=player_.eyePosition();
  world_.loadOverrides((worldPath_/"world.pmc").string());
  world_.generateTerrain(config_.viewDistance);
  screen_=Screen::Playing;SDL_SetWindowRelativeMouseMode(window_,true);
@@ -226,7 +237,7 @@ void Application::processEvents(){
 
   if(e.type==SDL_EVENT_KEY_DOWN||e.type==SDL_EVENT_KEY_UP){const bool down=e.type==SDL_EVENT_KEY_DOWN;
    switch(e.key.scancode){case SDL_SCANCODE_W:input_.forward=down;break;case SDL_SCANCODE_S:input_.backward=down;break;case SDL_SCANCODE_A:input_.left=down;break;case SDL_SCANCODE_D:input_.right=down;break;case SDL_SCANCODE_SPACE:input_.jump=down;break;case SDL_SCANCODE_LCTRL:case SDL_SCANCODE_RCTRL:input_.descend=down;break;case SDL_SCANCODE_LSHIFT:case SDL_SCANCODE_RSHIFT:input_.sprint=down;break;default:break;}
-   if(down&&!e.key.repeat){if(e.key.key==SDLK_ESCAPE){screen_=Screen::Title;menuSelection_=0;SDL_SetWindowRelativeMouseMode(window_,false);}if(e.key.key>=SDLK_1&&e.key.key<=SDLK_5)input_.hotbarSelection=(int)(e.key.key-SDLK_1);}
+   if(down&&!e.key.repeat){if(e.key.key==SDLK_ESCAPE)leaveWorldToMenu();if(e.key.key>=SDLK_1&&e.key.key<=SDLK_5)input_.hotbarSelection=(int)(e.key.key-SDLK_1);}
   }
   if(e.type==SDL_EVENT_MOUSE_MOTION){input_.mouseDeltaX+=e.motion.xrel;input_.mouseDeltaY+=e.motion.yrel;}
   if(e.type==SDL_EVENT_MOUSE_BUTTON_DOWN){if(e.button.button==SDL_BUTTON_LEFT)input_.removeBlock=true;if(e.button.button==SDL_BUTTON_RIGHT)input_.placeBlock=true;}
