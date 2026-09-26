@@ -71,12 +71,58 @@ void GpuRenderBackend::resize(int width,int height) {
 
 void GpuRenderBackend::beginFrame(const Camera& camera) {
  matrices_.update(camera,width_,height_);
+ commandBuffer_=nullptr;
+ swapchainTexture_=nullptr;
+ if(!device_||!window_) return;
+
+ commandBuffer_=SDL_AcquireGPUCommandBuffer(device_);
+ if(!commandBuffer_) {
+  projectmc::log(projectmc::LogLevel::Warning,std::string("Could not acquire GPU command buffer: ")+SDL_GetError());
+  return;
+ }
+
+ Uint32 swapWidth=0,swapHeight=0;
+ if(!SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer_,window_,&swapchainTexture_,&swapWidth,&swapHeight)) {
+  projectmc::log(projectmc::LogLevel::Warning,std::string("Could not acquire GPU swapchain texture: ")+SDL_GetError());
+  SDL_CancelGPUCommandBuffer(commandBuffer_);
+  commandBuffer_=nullptr;
+  return;
+ }
+ if(!swapchainTexture_) return;
+
+ if(static_cast<int>(swapWidth)!=width_||static_cast<int>(swapHeight)!=height_) {
+  width_=static_cast<int>(swapWidth);
+  height_=static_cast<int>(swapHeight);
+  createDepthTarget();
+  matrices_.update(camera,width_,height_);
+ }
+
+ SDL_GPUColorTargetInfo color{};
+ color.texture=swapchainTexture_;
+ color.clear_color={0.41f,0.69f,0.90f,1.0f};
+ color.load_op=SDL_GPU_LOADOP_CLEAR;
+ color.store_op=SDL_GPU_STOREOP_STORE;
+
+ SDL_GPUDepthStencilTargetInfo depth{};
+ depth.texture=depthTexture_;
+ depth.clear_depth=1.0f;
+ depth.load_op=SDL_GPU_LOADOP_CLEAR;
+ depth.store_op=SDL_GPU_STOREOP_DONT_CARE;
+ depth.stencil_load_op=SDL_GPU_LOADOP_DONT_CARE;
+ depth.stencil_store_op=SDL_GPU_STOREOP_DONT_CARE;
+ depth.cycle=false;
+ depth.clear_stencil=0;
+
+ SDL_GPURenderPass* pass=SDL_BeginGPURenderPass(commandBuffer_,&color,1,depthTexture_?&depth:nullptr);
+ if(pass) SDL_EndGPURenderPass(pass);
 }
 
 void GpuRenderBackend::endFrame() {
- // Command-buffer acquisition and world draw submission are enabled once the
- // chunk GPU buffers/pipeline are connected. The compatibility renderer still
- // presents the playable frame during this migration stage.
+ if(!commandBuffer_) return;
+ if(!SDL_SubmitGPUCommandBuffer(commandBuffer_))
+  projectmc::log(projectmc::LogLevel::Warning,std::string("Could not submit GPU frame: ")+SDL_GetError());
+ commandBuffer_=nullptr;
+ swapchainTexture_=nullptr;
 }
 
 }
