@@ -62,15 +62,67 @@ void ChunkRenderer::rebuildMesh(const world::ChunkPosition& pos,const world::Chu
    const std::string_view texture=f==4?def.textures.top:(f==5?def.textures.bottom:def.textures.side);
    q.uv=atlas.region(texture);q.shade=shades[f];q.transparent=def.transparent;
    for(int i=0;i<4;++i){const auto v=corners[faces[f][i]];q.vertices[i]={float(wx)+v.x,float(wy)+v.y,float(wz)+v.z};}
-   if(q.transparent){mesh.transparent.push_back(q);appendGpuQuad(mesh.transparentGpu,q);}
+   if(q.transparent) mesh.transparent.push_back(q);
    else mesh.opaque.push_back(q);
+  }
+ }
+
+ // Greedy mesh transparent faces too. They remain in a separate GPU mesh and
+ // are still submitted after opaque terrain; this only collapses coplanar faces.
+ const int dims[3]={world::Chunk::Width,world::Chunk::Height,world::Chunk::Depth};
+ for(int f=0;f<6;++f) {
+  const int d=f<2?2:(f<4?0:1);
+  const bool positive=(f==1||f==3||f==4);
+  const int u=(d+1)%3,v=(d+2)%3;
+  std::vector<world::BlockId> mask(static_cast<size_t>(dims[u]*dims[v]));
+  std::vector<unsigned char> used(mask.size());
+  for(int slice=0;slice<dims[d];++slice) {
+   std::fill(mask.begin(),mask.end(),0);
+   std::fill(used.begin(),used.end(),0);
+   for(int vv=0;vv<dims[v];++vv) for(int uu=0;uu<dims[u];++uu) {
+    int p[3]{};p[d]=slice;p[u]=uu;p[v]=vv;
+    const auto id=chunk.get(p[0],p[1],p[2]);
+    if(!id||!reg.get(id).transparent) continue;
+    const int wx=pos.x*world::Chunk::Width+p[0],wy=pos.y*world::Chunk::Height+p[1],wz=pos.z*world::Chunk::Depth+p[2];
+    const auto neighbour=world.getBlock(wx+normals[f][0],wy+normals[f][1],wz+normals[f][2]);
+    if(neighbour==id) continue;
+    if(neighbour&&!reg.get(neighbour).transparent) continue;
+    mask[static_cast<size_t>(vv*dims[u]+uu)]=id;
+   }
+   for(int vv=0;vv<dims[v];++vv) for(int uu=0;uu<dims[u];++uu) {
+    const size_t at=static_cast<size_t>(vv*dims[u]+uu);
+    const auto id=mask[at];
+    if(!id||used[at]) continue;
+    int width=1;
+    while(uu+width<dims[u]&&!used[at+width]&&mask[at+width]==id) ++width;
+    int height=1;bool grow=true;
+    while(vv+height<dims[v]&&grow) {
+     for(int k=0;k<width;++k) {
+      const size_t test=static_cast<size_t>((vv+height)*dims[u]+uu+k);
+      if(used[test]||mask[test]!=id){grow=false;break;}
+     }
+     if(grow) ++height;
+    }
+    for(int y2=0;y2<height;++y2) for(int x2=0;x2<width;++x2)
+     used[static_cast<size_t>((vv+y2)*dims[u]+uu+x2)]=1;
+
+    int origin[3]{};origin[d]=slice+(positive?1:0);origin[u]=uu;origin[v]=vv;
+    float base[3]={float(pos.x*world::Chunk::Width+origin[0]),float(pos.y*world::Chunk::Height+origin[1]),float(pos.z*world::Chunk::Depth+origin[2])};
+    float du[3]{};du[u]=float(width);float dv[3]{};dv[v]=float(height);
+    auto point=[&](float au,float av){return Vertex3{base[0]+du[0]*au+dv[0]*av,base[1]+du[1]*au+dv[1]*av,base[2]+du[2]*au+dv[2]*av};};
+    Quad q;const auto& def=reg.get(id);
+    const std::string_view texture=f==4?def.textures.top:(f==5?def.textures.bottom:def.textures.side);
+    q.uv=atlas.region(texture);q.shade=shades[f];q.transparent=true;
+    if(positive) q.vertices={point(0,0),point(1,0),point(1,1),point(0,1)};
+    else q.vertices={point(0,0),point(0,1),point(1,1),point(1,0)};
+    appendGpuQuad(mesh.transparentGpu,q,float(width),float(height));
+   }
   }
  }
 
  // Greedy mesh opaque faces independently for each direction. Adjacent visible
  // faces with the same block ID are collapsed into one rectangle. The shader
  // repeats the atlas tile over the merged rectangle instead of stretching it.
- const int dims[3]={world::Chunk::Width,world::Chunk::Height,world::Chunk::Depth};
  for(int f=0;f<6;++f) {
   int d=f<2?2:(f<4?0:1);
   const bool positive=(f==1||f==3||f==4);
