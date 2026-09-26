@@ -117,12 +117,17 @@ bool Application::initialize(){
    return -1.0f;
   };
   const bool finite=std::isfinite(player_.position.x)&&std::isfinite(player_.position.y)&&std::isfinite(player_.position.z);
-  const bool verticalValid=finite&&player_.position.y>=0.0f&&player_.position.y<static_cast<float>(world::Chunk::Height+8);
-  if(verticalValid)return;
   int x=finite?static_cast<int>(std::floor(player_.position.x)):8;
   int z=finite?static_cast<int>(std::floor(player_.position.z)):12;
+  // Ensure the saved column exists before deciding whether the saved position is safe.
   world_.updateStreaming(static_cast<float>(x),static_cast<float>(z),config_.viewDistance);
-  float y=findSafeY(x,z);
+  const float safeY=findSafeY(x,z);
+  const bool verticalValid=finite&&player_.position.y>=0.0f&&player_.position.y<static_cast<float>(world::Chunk::Height+8);
+  // A valid saved position must be at/above the terrain surface and close enough
+  // that it cannot represent an old fall through empty space.
+  const bool supported=verticalValid&&safeY>=0.0f&&player_.position.y>=safeY-0.05f&&player_.position.y<=safeY+4.0f;
+  if(supported)return;
+  float y=safeY;
   if(y<0.0f){x=8;z=12;y=findSafeY(x,z);}
   if(y<0.0f)y=13.0f;
   player_.position={static_cast<float>(x)+0.5f,y,static_cast<float>(z)+0.5f};
