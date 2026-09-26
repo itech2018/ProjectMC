@@ -84,8 +84,12 @@ void ChunkRenderer::renderWorld(SDL_Renderer* r,const world::World&,const Textur
   AtlasRegion uv{};
   bool transparent{};
  };
- std::vector<DrawFace> opaque;
- std::vector<DrawFace> transparent;
+ std::vector<DrawFace> draw;
+
+ const float yaw=cam.yaw*pi/180.0f;
+ const float pitch=cam.pitch*pi/180.0f;
+ const float forwardX=std::cos(yaw),forwardZ=std::sin(yaw);
+ const float cp=std::cos(pitch),sp=std::sin(pitch);
 
  for(const auto& [pos,mesh]:meshes_) {
   auto collect=[&](const std::vector<Quad>& source,bool isTransparent) {
@@ -96,6 +100,20 @@ void ChunkRenderer::renderWorld(SDL_Renderer* r,const world::World&,const Textur
     face.transparent=isTransparent;
     float depth=0.0f;
     bool visible=true;
+
+    // The SDL prototype has no polygon clipper. If any corner crosses the
+    // near plane, skip the quad instead of projecting it into a huge polygon.
+    // The upcoming GPU renderer will clip these triangles properly.
+    for(const auto& v:q.vertices) {
+     const float x=v.x-cam.position.x;
+     const float y=v.y-cam.position.y;
+     const float z=v.z-cam.position.z;
+     const float horizontal=x*forwardX+z*forwardZ;
+     const float cameraDepth=y*sp+horizontal*cp;
+     if(cameraDepth<=0.12f) { visible=false; break; }
+    }
+    if(!visible) continue;
+
     for(int i=0;i<4;++i) {
      const auto& v=q.vertices[i];
      const auto p=project(v.x,v.y,v.z,cam,w,h);
@@ -106,37 +124,32 @@ void ChunkRenderer::renderWorld(SDL_Renderer* r,const world::World&,const Textur
     }
     if(!visible) continue;
     face.depth=depth*.25f;
-    (isTransparent?transparent:opaque).push_back(face);
+    draw.push_back(face);
    }
   };
   collect(mesh.opaque,false);
   collect(mesh.transparent,true);
  }
 
- auto backToFront=[](const DrawFace& a,const DrawFace& b){return a.depth>b.depth;};
- // SDL's current prototype renderer has no depth buffer, so opaque faces still
- // need painter sorting. Transparent geometry is kept in a distinct pass so the
- // renderer architecture already matches the future GPU depth-buffer pipeline.
- std::sort(opaque.begin(),opaque.end(),backToFront);
- std::sort(transparent.begin(),transparent.end(),backToFront);
+ // With no hardware depth buffer, all surfaces must participate in the same
+ // painter ordering. Rendering water in a separate pass incorrectly painted
+ // distant water over nearer terrain.
+ std::sort(draw.begin(),draw.end(),[](const DrawFace& a,const DrawFace& b){
+  return a.depth>b.depth;
+ });
 
- auto drawPass=[&](const std::vector<DrawFace>& faces) {
-  for(const auto& f:faces) {
-   SDL_Vertex v[4]{};
-   const float uv[4][2]={{f.uv.u0,f.uv.v1},{f.uv.u0,f.uv.v0},{f.uv.u1,f.uv.v0},{f.uv.u1,f.uv.v1}};
-   for(int i=0;i<4;++i) {
-    v[i].position=f.points[i];
-    v[i].tex_coord={uv[i][0],uv[i][1]};
-    v[i].color={f.shade,f.shade,f.shade,f.transparent?.72f:1.0f};
-   }
-   const int indices[6]={0,1,2,0,2,3};
-   SDL_RenderGeometry(r,atlas.texture(),v,4,indices,6);
+ for(const auto& f:draw) {
+  SDL_Vertex v[4]{};
+  const float uv[4][2]={{f.uv.u0,f.uv.v1},{f.uv.u0,f.uv.v0},{f.uv.u1,f.uv.v0},{f.uv.u1,f.uv.v1}};
+  for(int i=0;i<4;++i) {
+   v[i].position=f.points[i];
+   v[i].tex_coord={uv[i][0],uv[i][1]};
+   v[i].color={f.shade,f.shade,f.shade,f.transparent?.72f:1.0f};
   }
- };
- drawPass(opaque);
- drawPass(transparent);
+  const int indices[6]={0,1,2,0,2,3};
+  SDL_RenderGeometry(r,atlas.texture(),v,4,indices,6);
+ }
 }
-
 void ChunkRenderer::renderSelection(SDL_Renderer* r,int x,int y,int z,const Camera& cam,int w,int h) {
  static constexpr int edges[12][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
  static constexpr float corners[8][3]={{-.002f,-.002f,-.002f},{1.002f,-.002f,-.002f},{1.002f,1.002f,-.002f},{-.002f,1.002f,-.002f},{-.002f,-.002f,1.002f},{1.002f,-.002f,1.002f},{1.002f,1.002f,1.002f},{-.002f,1.002f,1.002f}};
