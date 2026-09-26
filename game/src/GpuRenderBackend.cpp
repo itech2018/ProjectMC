@@ -550,7 +550,6 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const
  if(screen==0){drawText("SINGLEPLAYER",0,.135f,.008f,1,1,1);drawText("QUIT",0,-.065f,.008f,1,1,1);}
  else if(screen==1){drawText("SINGLEPLAYER",0,.36f,.009f,1,1,1);std::string shown=worldName.empty()?"WORLD":worldName;if(shown.size()>24)shown.resize(24);drawText(shown,0,.235f,.0075f,1,1,1);drawText("CREATE",- .18f,-.455f,.0065f,1,1,1);drawText("BACK",.18f,-.455f,.0075f,1,1,1);}
  else {drawText("CREATE WORLD",0,.36f,.009f,1,1,1);drawText("NAME",-.27f,.20f,.006f,1,1,1);drawText(worldName,0,.19f,.0065f,1,1,1);drawText("SEED",-.27f,.05f,.006f,1,1,1);drawText(seedText.empty()?"RANDOM":seedText,0,.04f,.0065f,1,1,1);drawText("CREATE",-.18f,-.455f,.0065f,1,1,1);drawText("CANCEL",.18f,-.455f,.0065f,1,1,1);}
- }
 }
 
 void GpuRenderBackend::releaseMesh(BufferPair& mesh) {
