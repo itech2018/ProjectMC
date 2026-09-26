@@ -28,12 +28,25 @@ private:
   float shade{1.0f};
   bool transparent{false};
  };
+ struct GpuVertex {
+  float x{},y{},z{};
+  float u{},v{};
+  float shade{1.0f};
+  float opacity{1.0f};
+ };
+ struct IndexedMesh {
+  std::vector<GpuVertex> vertices;
+  std::vector<unsigned int> indices;
+ };
  struct ChunkMesh {
   std::vector<Quad> opaque;
   std::vector<Quad> transparent;
+  IndexedMesh opaqueGpu;
+  IndexedMesh transparentGpu;
  };
 
  void rebuildMesh(const world::ChunkPosition&, const world::Chunk&, const world::World&, const TextureAtlas&);
+ static void appendGpuQuad(IndexedMesh&, const Quad&);
  std::unordered_map<world::ChunkPosition,ChunkMesh,world::ChunkPositionHash> meshes_;
 };
 }
