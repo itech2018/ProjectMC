@@ -17,6 +17,8 @@ public:
  [[nodiscard]] std::vector<WorldEntry> listWorlds() const;
  [[nodiscard]] WorldEntry createWorld(const std::string& name,std::uint64_t seed) const;
  [[nodiscard]] WorldEntry ensureDefaultWorld() const;
+ bool renameWorld(const WorldEntry& world,const std::string& name) const;
+ bool deleteWorld(const WorldEntry& world) const;
  [[nodiscard]] static std::string safeWorldId(const std::string& name);
 private:
  std::filesystem::path root_;
