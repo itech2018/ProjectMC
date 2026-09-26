@@ -17,6 +17,11 @@ GameConfig loadGameConfig(const std::string& path) {
     else if (key == "height") config.height = std::stoi(value);
     else if (key == "fullscreen") config.fullscreen = value == "true";
     else if (key == "vsync") config.vsync = value != "false";
+    else if (key == "view_distance") {
+      config.viewDistance = std::stoi(value);
+      if (config.viewDistance < 1) config.viewDistance = 1;
+      if (config.viewDistance > 16) config.viewDistance = 16;
+    }
   }
   return config;
 }
