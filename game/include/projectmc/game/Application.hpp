@@ -21,7 +21,7 @@ public:
  Application(const Application&)=delete;Application& operator=(const Application&)=delete;
  bool initialize();int run();
 private:
- enum class Screen { Title, Singleplayer, CreateWorld, Playing };
+ enum class Screen { Title, Singleplayer, CreateWorld, RenameWorld, DeleteWorld, Playing };
  void processEvents();void update(double dt);void render();void interact(bool place);
  void activateMenuSelection();void loadWorldEntry(const world::WorldEntry& entry);void saveCurrentWorld();void leaveWorldToMenu();
  projectmc::GameConfig config_;SDL_Window* window_{nullptr};SDL_Renderer* renderer_{nullptr};std::unique_ptr<RenderBackend> renderBackend_;
@@ -41,5 +41,8 @@ private:
   std::string createWorldName_{"New World"};
   std::string createWorldSeed_{};
   int createField_{0};
+  int worldListOffset_{0};
+  std::string renameWorldName_{};
+  int confirmSelection_{0};
 };
 }
