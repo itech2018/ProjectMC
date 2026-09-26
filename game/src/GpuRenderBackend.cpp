@@ -489,7 +489,7 @@ void GpuRenderBackend::drawHud(int selectedSlot) {
  SDL_DrawGPUPrimitives(renderPass_,data.rectCount*6,1,0,0);
 }
 
-void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const std::string& worldName,const std::string& seedText,int listOffset) {
+void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const std::string& worldName,const std::string& seedText,int listOffset,const std::vector<std::string>& worldNames) {
  if(!renderPass_||!hudPipeline_||!commandBuffer_)return;
  struct HudData{float rects[12][4]{};float colors[12][4]{};Uint32 rectCount{};float padding[3]{};};
  auto flush=[&](HudData& d){if(!d.rectCount)return;SDL_PushGPUVertexUniformData(commandBuffer_,0,&d,sizeof(d));SDL_BindGPUGraphicsPipeline(renderPass_,hudPipeline_);SDL_DrawGPUPrimitives(renderPass_,d.rectCount*6,1,0,0);d={};};
@@ -528,7 +528,7 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const
  };
  drawText("PROJECTMC",0,.575f,.011f);
  if(screen==0){drawText("SINGLEPLAYER",0,.12f,.009f);drawText("QUIT",0,-.08f,.009f);}
- else if(screen==1){drawText("SINGLEPLAYER",0,.455f,.008f);std::string n=worldName.empty()?"SELECT A WORLD":worldName;if(n.size()>28)n.resize(28);drawText(n,0,.31f,.007f);drawText("PLAY",0,-.31f,.007f);drawText("CREATE",-.25f,-.43f,.007f);drawText("RENAME",.25f,-.43f,.007f);drawText("DELETE",-.25f,-.55f,.007f);drawText("BACK",.25f,-.55f,.007f);}
+ else if(screen==1){drawText("SINGLEPLAYER",0,.455f,.008f);const int visible=std::min(5,(int)worldNames.size());for(int row=0;row<visible;++row){std::string n=worldNames[row];if(n.size()>28)n.resize(28);drawText(n,0,.31f-row*.13f,.007f);}drawText("PLAY",0,-.31f,.007f);drawText("CREATE",-.25f,-.43f,.007f);drawText("RENAME",.25f,-.43f,.007f);drawText("DELETE",-.25f,-.55f,.007f);drawText("BACK",.25f,-.55f,.007f);}
  else if(screen==2){drawText("CREATE WORLD",0,.445f,.009f);drawText("NAME",-.34f,.20f,.0065f);drawText(worldName,0,.20f,.0065f);drawText("SEED",-.34f,.04f,.0065f);drawText(seedText.empty()?"RANDOM":seedText,0,.04f,.0065f);drawText("CREATE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
  else if(screen==3){drawText("RENAME WORLD",0,.445f,.009f);drawText("NAME",-.34f,.16f,.0065f);drawText(worldName,0,.16f,.0065f);drawText("SAVE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
  else {drawText("DELETE WORLD",0,.445f,.009f);drawText(worldName,0,.12f,.007f);drawText("DELETE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
