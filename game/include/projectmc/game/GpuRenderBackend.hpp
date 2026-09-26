@@ -3,6 +3,7 @@
 #include <SDL3/SDL_gpu.h>
 #include "projectmc/game/RenderBackend.hpp"
 #include "projectmc/game/RenderMath.hpp"
+#include <string>
 
 namespace projectmc::game {
 
@@ -29,8 +30,11 @@ public:
  bool uploadMesh(const void* vertices,Uint32 vertexBytes,const void* indices,Uint32 indexBytes,Uint32 indexCount,BufferPair& out);
  void releaseMesh(BufferPair& mesh);
  bool createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader);
+ [[nodiscard]] bool worldPipelineReady() const noexcept { return worldPipeline_!=nullptr; }
 
 private:
+ bool loadWorldShaders();
+ std::string shaderPath(const char* stem) const;
  void destroyDepthTarget();
  bool createDepthTarget();
 
@@ -40,6 +44,8 @@ private:
  SDL_GPUCommandBuffer* commandBuffer_{nullptr};
  SDL_GPUTexture* swapchainTexture_{nullptr};
  SDL_GPUGraphicsPipeline* worldPipeline_{nullptr};
+ SDL_GPUShader* worldVertexShader_{nullptr};
+ SDL_GPUShader* worldFragmentShader_{nullptr};
  CameraMatrices matrices_{};
  int width_{0};
  int height_{0};
