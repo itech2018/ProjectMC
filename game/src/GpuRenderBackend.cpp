@@ -1,13 +1,19 @@
 #include "projectmc/game/GpuRenderBackend.hpp"
+#include "projectmc/game/GpuShaderLoader.hpp"
 #include "projectmc/Log.hpp"
 #include <string>
 #include <cstring>
+#include <filesystem>
 
 namespace projectmc::game {
 
 GpuRenderBackend::~GpuRenderBackend() {
  if(device_&&worldPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,worldPipeline_);
+ if(device_&&worldVertexShader_) SDL_ReleaseGPUShader(device_,worldVertexShader_);
+ if(device_&&worldFragmentShader_) SDL_ReleaseGPUShader(device_,worldFragmentShader_);
  worldPipeline_=nullptr;
+ worldVertexShader_=nullptr;
+ worldFragmentShader_=nullptr;
  destroyDepthTarget();
  if(device_) {
   if(window_) SDL_ReleaseWindowFromGPUDevice(device_,window_);
@@ -36,6 +42,42 @@ bool GpuRenderBackend::initialize(SDL_Window* window) {
 
  SDL_GetWindowSizeInPixels(window_,&width_,&height_);
  if(!createDepthTarget()) return false;
+ if(!loadWorldShaders())
+  projectmc::log(projectmc::LogLevel::Warning,"GPU device is ready, but compiled voxel shaders are not available yet.");
+ return true;
+}
+
+std::string GpuRenderBackend::shaderPath(const char* stem) const {
+ const SDL_GPUShaderFormat formats=SDL_GetGPUShaderFormats(device_);
+ const char* extension=nullptr;
+ if(formats&SDL_GPU_SHADERFORMAT_DXIL) extension=".dxil";
+ else if(formats&SDL_GPU_SHADERFORMAT_SPIRV) extension=".spv";
+ else if(formats&SDL_GPU_SHADERFORMAT_MSL) extension=".msl";
+ if(!extension) return {};
+
+ char* base=SDL_GetBasePath();
+ std::filesystem::path root=base?std::filesystem::path(base):std::filesystem::current_path();
+ if(base) SDL_free(base);
+ return (root/"shaders"/(std::string(stem)+extension)).string();
+}
+
+bool GpuRenderBackend::loadWorldShaders() {
+ if(!device_) return false;
+ const std::string vertexPath=shaderPath("voxel.vert");
+ const std::string fragmentPath=shaderPath("voxel.frag");
+ if(vertexPath.empty()||fragmentPath.empty()) return false;
+
+ worldVertexShader_=GpuShaderLoader::load(device_,vertexPath,SDL_GPU_SHADERSTAGE_VERTEX,0,1);
+ worldFragmentShader_=GpuShaderLoader::load(device_,fragmentPath,SDL_GPU_SHADERSTAGE_FRAGMENT,1,0);
+ if(!worldVertexShader_||!worldFragmentShader_) {
+  if(worldVertexShader_) SDL_ReleaseGPUShader(device_,worldVertexShader_);
+  if(worldFragmentShader_) SDL_ReleaseGPUShader(device_,worldFragmentShader_);
+  worldVertexShader_=nullptr;
+  worldFragmentShader_=nullptr;
+  return false;
+ }
+ if(!createWorldPipeline(worldVertexShader_,worldFragmentShader_)) return false;
+ projectmc::log(projectmc::LogLevel::Info,"GPU voxel shaders and world pipeline loaded.");
  return true;
 }
 
@@ -207,6 +249,8 @@ void GpuRenderBackend::beginFrame(const Camera& camera) {
  if(!device_||!window_) return;
 
  commandBuffer_=SDL_AcquireGPUCommandBuffer(device_);
+ if(commandBuffer_&&worldPipeline_)
+  SDL_PushGPUVertexUniformData(commandBuffer_,0,matrices_.viewProjection.m.data(),static_cast<Uint32>(sizeof(matrices_.viewProjection.m)));
  if(!commandBuffer_) {
   projectmc::log(projectmc::LogLevel::Warning,std::string("Could not acquire GPU command buffer: ")+SDL_GetError());
   return;
