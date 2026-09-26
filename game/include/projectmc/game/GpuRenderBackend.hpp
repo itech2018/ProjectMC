@@ -28,6 +28,8 @@ private:
  SDL_Window* window_{nullptr};
  SDL_GPUDevice* device_{nullptr};
  SDL_GPUTexture* depthTexture_{nullptr};
+ SDL_GPUCommandBuffer* commandBuffer_{nullptr};
+ SDL_GPUTexture* swapchainTexture_{nullptr};
  CameraMatrices matrices_{};
  int width_{0};
  int height_{0};
