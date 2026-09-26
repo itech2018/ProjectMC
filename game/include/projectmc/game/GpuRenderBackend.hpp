@@ -32,11 +32,14 @@ public:
  bool uploadMesh(const void* vertices,Uint32 vertexBytes,const void* indices,Uint32 indexBytes,Uint32 indexCount,BufferPair& out);
  void releaseMesh(BufferPair& mesh);
  void drawIndexed(const BufferPair& mesh,bool transparent=false);
+ void drawHud();
  bool createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader);
  [[nodiscard]] bool worldPipelineReady() const noexcept { return worldPipeline_!=nullptr; }
 
 private:
  bool loadWorldShaders();
+ bool loadHudShaders();
+ bool createHudPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader);
  std::string shaderPath(const char* stem) const;
  void destroyDepthTarget();
  bool createDepthTarget();
@@ -51,8 +54,11 @@ private:
  SDL_GPURenderPass* renderPass_{nullptr};
  SDL_GPUGraphicsPipeline* worldPipeline_{nullptr};
  SDL_GPUGraphicsPipeline* transparentPipeline_{nullptr};
+ SDL_GPUGraphicsPipeline* hudPipeline_{nullptr};
  SDL_GPUShader* worldVertexShader_{nullptr};
  SDL_GPUShader* worldFragmentShader_{nullptr};
+ SDL_GPUShader* hudVertexShader_{nullptr};
+ SDL_GPUShader* hudFragmentShader_{nullptr};
  CameraMatrices matrices_{};
  int width_{0};
  int height_{0};
