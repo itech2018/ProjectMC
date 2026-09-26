@@ -21,6 +21,7 @@ add_executable(projectmc-game
   src/Raycast.cpp
   src/RenderBackend.cpp
   src/GpuRenderBackend.cpp
+  src/GpuShaderLoader.cpp
   src/RenderMath.cpp
   src/SdlRenderBackend.cpp
   src/TextureAtlas.cpp
