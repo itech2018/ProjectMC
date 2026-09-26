@@ -259,11 +259,11 @@ void Application::render(){
    const int i=std::clamp(menuSelection_,0,(int)availableWorlds_.size()-1);
    menuWorld=availableWorlds_[i].metadata.name;
   }
-  const int menuScreen=screen_==Screen::Title?0:(screen_==Screen::Singleplayer?1:2);
-  gpu->drawMenu(menuScreen,screen_==Screen::CreateWorld?createField_:menuSelection_,
-   screen_==Screen::Title?2:(int)availableWorlds_.size(),
-   screen_==Screen::CreateWorld?createWorldName_:menuWorld,
-   screen_==Screen::CreateWorld?createWorldSeed_:"");
+  const int menuScreen=screen_==Screen::Title?0:screen_==Screen::Singleplayer?1:screen_==Screen::CreateWorld?2:screen_==Screen::RenameWorld?3:4;
+  const int selected=screen_==Screen::CreateWorld?createField_:(screen_==Screen::RenameWorld||screen_==Screen::DeleteWorld?confirmSelection_:menuSelection_);
+  const std::string shownName=screen_==Screen::CreateWorld?createWorldName_:screen_==Screen::RenameWorld?renameWorldName_:menuWorld;
+  gpu->drawMenu(menuScreen,selected,screen_==Screen::Title?2:(int)availableWorlds_.size(),shownName,
+   screen_==Screen::CreateWorld?createWorldSeed_:"",worldListOffset_);
   gpu->endFrame();return;
  }
  chunkRenderer_.syncMeshes(world_,atlas_);
