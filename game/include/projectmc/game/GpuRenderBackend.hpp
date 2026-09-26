@@ -14,6 +14,9 @@ public:
  void beginFrame(const Camera& camera) override;
  void endFrame() override;
  [[nodiscard]] const char* name() const noexcept override { return "SDL GPU"; }
+ [[nodiscard]] RenderCapabilities capabilities() const noexcept override {
+  return {true,true,true,false};
+ }
 
  [[nodiscard]] SDL_GPUDevice* device() const noexcept { return device_; }
  [[nodiscard]] const CameraMatrices& matrices() const noexcept { return matrices_; }
