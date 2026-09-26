@@ -487,6 +487,35 @@ void GpuRenderBackend::drawHud(int selectedSlot) {
  SDL_DrawGPUPrimitives(renderPass_,data.rectCount*6,1,0,0);
 }
 
+void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount) {
+ if(!renderPass_||!hudPipeline_||!commandBuffer_) return;
+ struct HudData { float rects[12][4]{};float colors[12][4]{};Uint32 rectCount{};float padding[3]{}; } data;
+ auto add=[&](float cx,float cy,float hx,float hy,float r,float g,float b,float a){
+  if(data.rectCount>=12)return;const Uint32 i=data.rectCount++;
+  data.rects[i][0]=cx;data.rects[i][1]=cy;data.rects[i][2]=hx;data.rects[i][3]=hy;
+  data.colors[i][0]=r;data.colors[i][1]=g;data.colors[i][2]=b;data.colors[i][3]=a;
+ };
+ // Dark translucent centre panel and a small ProjectMC-style header mark.
+ add(0,0,.43f,.62f,.08f,.10f,.13f,.94f);
+ add(0,.43f,.27f,.055f,.24f,.55f,.82f,1.0f);
+ if(screen==0) {
+  // Main menu: Singleplayer, Quit.
+  for(int i=0;i<2;++i){const float y=.12f-i*.20f;const bool selected=i==selectedIndex;
+   add(0,y,.30f,.065f,selected?.32f:.18f,selected?.62f:.22f,selected?.88f:.28f,1.0f);}
+ } else {
+  // World list rows. Text/details are mirrored into the native window title
+  // until the bitmap/font renderer lands in the next UI pass.
+  const int visible=itemCount<5?itemCount:5;
+  for(int i=0;i<visible;++i){const float y=.22f-i*.15f;const bool selected=i==selectedIndex;
+   add(0,y,.34f,.052f,selected?.32f:.18f,selected?.62f:.22f,selected?.88f:.28f,1.0f);}
+  add(-.18f,-.47f,.15f,.055f,.20f,.48f,.72f,1.0f);
+  add(.18f,-.47f,.15f,.055f,.25f,.28f,.32f,1.0f);
+ }
+ SDL_PushGPUVertexUniformData(commandBuffer_,0,&data,sizeof(data));
+ SDL_BindGPUGraphicsPipeline(renderPass_,hudPipeline_);
+ SDL_DrawGPUPrimitives(renderPass_,data.rectCount*6,1,0,0);
+}
+
 void GpuRenderBackend::releaseMesh(BufferPair& mesh) {
  if(device_) {
   if(mesh.vertex) SDL_ReleaseGPUBuffer(device_,mesh.vertex);
