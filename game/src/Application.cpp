@@ -8,8 +8,23 @@ constexpr float PI=3.14159265358979323846f;
 Application::Application(projectmc::GameConfig c):config_(std::move(c)){}
 Application::~Application(){if(renderer_)SDL_DestroyRenderer(renderer_);if(window_)SDL_DestroyWindow(window_);SDL_Quit();}
 bool Application::initialize(){
- projectmc::log(projectmc::LogLevel::Info,"Initialising SDL...");
- if(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS)){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_Init failed: ")+SDL_GetError());return false;}
+ projectmc::log(projectmc::LogLevel::Info,"Preparing SDL video...");
+#ifdef _WIN32
+ // SDL's automatic Windows video-driver probing has been observed to stall on
+ // some machines during the first process launch. ProjectMC only needs the
+ // native Win32 backend here, so select it before SDL initialises video.
+ if(!SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"windows"))
+  projectmc::log(projectmc::LogLevel::Warning,"Could not set SDL Windows video-driver hint.");
+#endif
+ int videoDrivers=SDL_GetNumVideoDrivers();
+ projectmc::log(projectmc::LogLevel::Info,"SDL reports "+std::to_string(videoDrivers)+" video driver(s).");
+ for(int i=0;i<videoDrivers;++i){const char*d=SDL_GetVideoDriver(i);if(d)projectmc::log(projectmc::LogLevel::Info,"SDL video driver: "+std::string(d));}
+ projectmc::log(projectmc::LogLevel::Info,"Initialising SDL events...");
+ if(!SDL_InitSubSystem(SDL_INIT_EVENTS)){projectmc::log(projectmc::LogLevel::Error,std::string("SDL events init failed: ")+SDL_GetError());return false;}
+ projectmc::log(projectmc::LogLevel::Info,"Initialising SDL video...");
+ if(!SDL_InitSubSystem(SDL_INIT_VIDEO)){projectmc::log(projectmc::LogLevel::Error,std::string("SDL video init failed: ")+SDL_GetError());return false;}
+ const char*activeDriver=SDL_GetCurrentVideoDriver();
+ projectmc::log(projectmc::LogLevel::Info,std::string("SDL video ready: ")+(activeDriver?activeDriver:"unknown"));
  projectmc::log(projectmc::LogLevel::Info,"Creating game window...");
  SDL_WindowFlags f=SDL_WINDOW_RESIZABLE;if(config_.fullscreen)f|=SDL_WINDOW_FULLSCREEN;
  window_=SDL_CreateWindow(config_.title.c_str(),config_.width,config_.height,f);
