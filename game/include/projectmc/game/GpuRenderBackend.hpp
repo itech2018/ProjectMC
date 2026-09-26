@@ -31,7 +31,7 @@ public:
  bool uploadAtlas(const TextureAtlas& atlas);
  bool uploadMesh(const void* vertices,Uint32 vertexBytes,const void* indices,Uint32 indexBytes,Uint32 indexCount,BufferPair& out);
  void releaseMesh(BufferPair& mesh);
- void drawIndexed(const BufferPair& mesh);
+ void drawIndexed(const BufferPair& mesh,bool transparent=false);
  bool createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader);
  [[nodiscard]] bool worldPipelineReady() const noexcept { return worldPipeline_!=nullptr; }
 
@@ -50,6 +50,7 @@ private:
  SDL_GPUTexture* swapchainTexture_{nullptr};
  SDL_GPURenderPass* renderPass_{nullptr};
  SDL_GPUGraphicsPipeline* worldPipeline_{nullptr};
+ SDL_GPUGraphicsPipeline* transparentPipeline_{nullptr};
  SDL_GPUShader* worldVertexShader_{nullptr};
  SDL_GPUShader* worldFragmentShader_{nullptr};
  CameraMatrices matrices_{};
