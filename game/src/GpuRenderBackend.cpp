@@ -55,9 +55,8 @@ std::string GpuRenderBackend::shaderPath(const char* stem) const {
  else if(formats&SDL_GPU_SHADERFORMAT_MSL) extension=".msl";
  if(!extension) return {};
 
- char* base=SDL_GetBasePath();
- std::filesystem::path root=base?std::filesystem::path(base):std::filesystem::current_path();
- if(base) SDL_free(base);
+ const char* base=SDL_GetBasePath();
+ std::filesystem::path root=(base&&*base)?std::filesystem::path(base):std::filesystem::current_path();
  return (root/"shaders"/(std::string(stem)+extension)).string();
 }
 
