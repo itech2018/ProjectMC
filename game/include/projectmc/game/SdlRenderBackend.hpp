@@ -13,6 +13,9 @@ public:
  void beginFrame(const Camera& camera) override;
  void endFrame() override;
  [[nodiscard]] const char* name() const noexcept override { return "SDL compatibility"; }
+ [[nodiscard]] RenderCapabilities capabilities() const noexcept override {
+  return {false,false,false,true};
+ }
 
  [[nodiscard]] int width() const noexcept { return width_; }
  [[nodiscard]] int height() const noexcept { return height_; }
