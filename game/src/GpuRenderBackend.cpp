@@ -489,7 +489,7 @@ void GpuRenderBackend::drawHud(int selectedSlot) {
  SDL_DrawGPUPrimitives(renderPass_,data.rectCount*6,1,0,0);
 }
 
-void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const std::string& worldName,const std::string& seedText) {
+void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const std::string& worldName,const std::string& seedText,int listOffset) {
  if(!renderPass_||!hudPipeline_||!commandBuffer_) return;
  struct HudData { float rects[12][4]{};float colors[12][4]{};Uint32 rectCount{};float padding[3]{}; } data;
  auto add=[&](float cx,float cy,float hx,float hy,float r,float g,float b,float a){
@@ -502,9 +502,13 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const
  if(screen==0) {
   for(int i=0;i<2;++i){const float y=.12f-i*.20f;const bool selected=i==selectedIndex;add(0,y,.30f,.065f,selected?.32f:.18f,selected?.62f:.22f,selected?.88f:.28f,1);}
  } else if(screen==1) {
-  const int visible=itemCount<5?itemCount:5;for(int i=0;i<visible;++i){const float y=.22f-i*.15f;const bool selected=i==selectedIndex;add(0,y,.34f,.052f,selected?.32f:.18f,selected?.62f:.22f,selected?.88f:.28f,1);}
-  add(-.18f,-.47f,.15f,.055f,.20f,.48f,.72f,1);add(.18f,-.47f,.15f,.055f,.25f,.28f,.32f,1);
- } else {
+  const int visible=std::min(5,std::max(0,itemCount-listOffset));for(int row=0;row<visible;++row){const int i=listOffset+row;const float y=.22f-row*.13f;const bool selected=i==selectedIndex;add(0,y,.34f,.045f,selected?.32f:.18f,selected?.62f:.22f,selected?.88f:.28f,1);}
+  const int action=selectedIndex-itemCount;
+  add(-.27f,-.47f,.075f,.05f,action==0?.32f:.20f,action==0?.62f:.48f,action==0?.88f:.72f,1);
+  add(-.09f,-.47f,.075f,.05f,action==1?.32f:.22f,action==1?.62f:.40f,action==1?.88f:.62f,1);
+  add(.09f,-.47f,.075f,.05f,action==2?.55f:.38f,action==2?.25f:.18f,action==2?.25f:.18f,1);
+  add(.27f,-.47f,.075f,.05f,action==3?.32f:.25f,action==3?.62f:.28f,action==3?.88f:.32f,1);
+ } else if(screen==2) {
   add(0,.18f,.34f,.05f,selectedIndex==0?.32f:.16f,selectedIndex==0?.62f:.19f,selectedIndex==0?.88f:.24f,1);
   add(0,.03f,.34f,.05f,selectedIndex==1?.32f:.16f,selectedIndex==1?.62f:.19f,selectedIndex==1?.88f:.24f,1);
   add(-.18f,-.47f,.15f,.055f,selectedIndex==2?.32f:.20f,selectedIndex==2?.62f:.48f,selectedIndex==2?.88f:.72f,1);
@@ -521,14 +525,17 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const
   {'A',"011101000110001111111000110001"},{'B',"111101000111110100011000111110"},
   {'C',"011111000010000100001000001111"},{'D',"111101000110001100011000111110"},
   {'E',"111111000011110100001000011111"},{'F',"111111000011110100001000010000"},
-  {'G',"011111000010111100011000101110"},{'I',"111110010000100001000010011111"},
+  {'G',"011111000010111100011000101110"},{'H',"100011000111111100011000110001"},
+  {'I',"111110010000100001000010011111"},
   {'L',"100001000010000100001000011111"},{'M',"100011101110101101011000110001"},
   {'N',"100011100110101100111000110001"},{'O',"011101000110001100011000101110"},
   {'P',"111101000110001111101000010000"},{'Q',"011101000110001101011001001101"},
   {'R',"111101000110001111101010010001"},{'S',"011111000001110000010000111110"},
   {'T',"111110010000100001000010000100"},{'U',"100011000110001100011000101110"},
   {'W',"100011000110101101011010101010"},{'Y',"100011000101010001000010000100"},
-  {'J',"001110001000010000101001001100"},{'V',"100011000110001100010101000100"},
+  {'J',"001110001000010000101001001100"},{'K',"100011001011100100101000110001"},
+  {'V',"100011000110001100010101000100"},{'X',"100011000101010001001010110001"},
+  {'Z',"111110000100010001000100011111"},
   {'0',"011101000110011101011100101110"},{'1',"001000110000100001000010001110"},
   {'2',"011101000100001001100100011111"},{'3',"111100000100110000011000111110"},
   {'4',"100011000111111000010000100001"},{'5',"111111000011110000011000111110"},
@@ -548,8 +555,10 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const
  };
  drawText("PROJECTMC",0,.455f,.012f,1,1,1);
  if(screen==0){drawText("SINGLEPLAYER",0,.135f,.008f,1,1,1);drawText("QUIT",0,-.065f,.008f,1,1,1);}
- else if(screen==1){drawText("SINGLEPLAYER",0,.36f,.009f,1,1,1);std::string shown=worldName.empty()?"WORLD":worldName;if(shown.size()>24)shown.resize(24);drawText(shown,0,.235f,.0075f,1,1,1);drawText("CREATE",- .18f,-.455f,.0065f,1,1,1);drawText("BACK",.18f,-.455f,.0075f,1,1,1);}
- else {drawText("CREATE WORLD",0,.36f,.009f,1,1,1);drawText("NAME",-.27f,.20f,.006f,1,1,1);drawText(worldName,0,.19f,.0065f,1,1,1);drawText("SEED",-.27f,.05f,.006f,1,1,1);drawText(seedText.empty()?"RANDOM":seedText,0,.04f,.0065f,1,1,1);drawText("CREATE",-.18f,-.455f,.0065f,1,1,1);drawText("CANCEL",.18f,-.455f,.0065f,1,1,1);}
+ else if(screen==1){drawText("SINGLEPLAYER",0,.36f,.009f,1,1,1);std::string shown=worldName.empty()?"SELECT WORLD":worldName;if(shown.size()>24)shown.resize(24);drawText(shown,0,.31f,.0065f,1,1,1);drawText("CREATE",-.27f,-.455f,.0055f,1,1,1);drawText("RENAME",-.09f,-.455f,.0052f,1,1,1);drawText("DELETE",.09f,-.455f,.0052f,1,1,1);drawText("BACK",.27f,-.455f,.0058f,1,1,1);}
+ else if(screen==2){drawText("CREATE WORLD",0,.36f,.009f,1,1,1);drawText("NAME",-.27f,.20f,.006f,1,1,1);drawText(worldName,0,.19f,.0065f,1,1,1);drawText("SEED",-.27f,.05f,.006f,1,1,1);drawText(seedText.empty()?"RANDOM":seedText,0,.04f,.0065f,1,1,1);drawText("CREATE",-.18f,-.455f,.0065f,1,1,1);drawText("CANCEL",.18f,-.455f,.0065f,1,1,1);}
+ else if(screen==3){drawText("RENAME WORLD",0,.36f,.009f,1,1,1);drawText("NAME",-.27f,.20f,.006f,1,1,1);drawText(worldName,0,.19f,.0065f,1,1,1);drawText("SAVE",-.18f,-.455f,.007f,1,1,1);drawText("CANCEL",.18f,-.455f,.0065f,1,1,1);}
+ else {drawText("DELETE WORLD",0,.36f,.009f,1,1,1);drawText(worldName,0,.12f,.007f,1,1,1);drawText("DELETE",-.18f,-.455f,.0065f,1,1,1);drawText("CANCEL",.18f,-.455f,.0065f,1,1,1);}
 }
 
 void GpuRenderBackend::releaseMesh(BufferPair& mesh) {
