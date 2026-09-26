@@ -1,6 +1,7 @@
 #include "projectmc/game/GpuRenderBackend.hpp"
 #include "projectmc/Log.hpp"
 #include <string>
+#include <cstring>
 
 namespace projectmc::game {
 
@@ -59,6 +60,92 @@ bool GpuRenderBackend::createDepthTarget() {
   return false;
  }
  return true;
+}
+
+bool GpuRenderBackend::uploadMesh(const void* vertices,Uint32 vertexBytes,const void* indices,Uint32 indexBytes,Uint32 indexCount,BufferPair& out) {
+ if(!device_||!vertices||!indices||vertexBytes==0||indexBytes==0) return false;
+
+ releaseMesh(out);
+
+ SDL_GPUBufferCreateInfo vbInfo{};
+ vbInfo.usage=SDL_GPU_BUFFERUSAGE_VERTEX;
+ vbInfo.size=vertexBytes;
+ out.vertex=SDL_CreateGPUBuffer(device_,&vbInfo);
+
+ SDL_GPUBufferCreateInfo ibInfo{};
+ ibInfo.usage=SDL_GPU_BUFFERUSAGE_INDEX;
+ ibInfo.size=indexBytes;
+ out.index=SDL_CreateGPUBuffer(device_,&ibInfo);
+
+ if(!out.vertex||!out.index) {
+  projectmc::log(projectmc::LogLevel::Warning,std::string("Could not create chunk GPU buffers: ")+SDL_GetError());
+  releaseMesh(out);
+  return false;
+ }
+
+ const Uint32 total=vertexBytes+indexBytes;
+ SDL_GPUTransferBufferCreateInfo transferInfo{};
+ transferInfo.usage=SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+ transferInfo.size=total;
+ SDL_GPUTransferBuffer* transfer=SDL_CreateGPUTransferBuffer(device_,&transferInfo);
+ if(!transfer) {
+  projectmc::log(projectmc::LogLevel::Warning,std::string("Could not create GPU upload buffer: ")+SDL_GetError());
+  releaseMesh(out);
+  return false;
+ }
+
+ void* mapped=SDL_MapGPUTransferBuffer(device_,transfer,false);
+ if(!mapped) {
+  projectmc::log(projectmc::LogLevel::Warning,std::string("Could not map GPU upload buffer: ")+SDL_GetError());
+  SDL_ReleaseGPUTransferBuffer(device_,transfer);
+  releaseMesh(out);
+  return false;
+ }
+ std::memcpy(mapped,vertices,vertexBytes);
+ std::memcpy(static_cast<unsigned char*>(mapped)+vertexBytes,indices,indexBytes);
+ SDL_UnmapGPUTransferBuffer(device_,transfer);
+
+ SDL_GPUCommandBuffer* cmd=SDL_AcquireGPUCommandBuffer(device_);
+ if(!cmd) {
+  SDL_ReleaseGPUTransferBuffer(device_,transfer);
+  releaseMesh(out);
+  return false;
+ }
+ SDL_GPUCopyPass* copy=SDL_BeginGPUCopyPass(cmd);
+ if(!copy) {
+  SDL_CancelGPUCommandBuffer(cmd);
+  SDL_ReleaseGPUTransferBuffer(device_,transfer);
+  releaseMesh(out);
+  return false;
+ }
+
+ SDL_GPUTransferBufferLocation vertexSrc{transfer,0};
+ SDL_GPUBufferRegion vertexDst{out.vertex,0,vertexBytes};
+ SDL_UploadToGPUBuffer(copy,&vertexSrc,&vertexDst,false);
+
+ SDL_GPUTransferBufferLocation indexSrc{transfer,vertexBytes};
+ SDL_GPUBufferRegion indexDst{out.index,0,indexBytes};
+ SDL_UploadToGPUBuffer(copy,&indexSrc,&indexDst,false);
+ SDL_EndGPUCopyPass(copy);
+
+ if(!SDL_SubmitGPUCommandBuffer(cmd)) {
+  projectmc::log(projectmc::LogLevel::Warning,std::string("Could not submit chunk GPU upload: ")+SDL_GetError());
+  SDL_ReleaseGPUTransferBuffer(device_,transfer);
+  releaseMesh(out);
+  return false;
+ }
+
+ SDL_ReleaseGPUTransferBuffer(device_,transfer);
+ out.indexCount=indexCount;
+ return true;
+}
+
+void GpuRenderBackend::releaseMesh(BufferPair& mesh) {
+ if(device_) {
+  if(mesh.vertex) SDL_ReleaseGPUBuffer(device_,mesh.vertex);
+  if(mesh.index) SDL_ReleaseGPUBuffer(device_,mesh.index);
+ }
+ mesh={};
 }
 
 void GpuRenderBackend::resize(int width,int height) {
