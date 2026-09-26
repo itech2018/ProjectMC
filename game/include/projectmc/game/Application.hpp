@@ -23,7 +23,7 @@ public:
 private:
  enum class Screen { Title, Singleplayer, CreateWorld, Playing };
  void processEvents();void update(double dt);void render();void interact(bool place);
- void activateMenuSelection();void loadWorldEntry(const world::WorldEntry& entry);
+ void activateMenuSelection();void loadWorldEntry(const world::WorldEntry& entry);void saveCurrentWorld();void leaveWorldToMenu();
  projectmc::GameConfig config_;SDL_Window* window_{nullptr};SDL_Renderer* renderer_{nullptr};std::unique_ptr<RenderBackend> renderBackend_;
  InputState input_{};Camera camera_{};Player player_{};TextureAtlas atlas_{};ChunkRenderer chunkRenderer_{};world::World world_{};
  world::BlockId selectedBlock_{1};
