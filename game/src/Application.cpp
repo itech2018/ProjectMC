@@ -8,11 +8,29 @@ constexpr float PI=3.14159265358979323846f;
 Application::Application(projectmc::GameConfig c):config_(std::move(c)){}
 Application::~Application(){if(renderer_)SDL_DestroyRenderer(renderer_);if(window_)SDL_DestroyWindow(window_);SDL_Quit();}
 bool Application::initialize(){
- if(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS)){projectmc::log(projectmc::LogLevel::Error,SDL_GetError());return false;}
+ projectmc::log(projectmc::LogLevel::Info,"Initialising SDL...");
+ if(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS)){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_Init failed: ")+SDL_GetError());return false;}
+ projectmc::log(projectmc::LogLevel::Info,"Creating game window...");
  SDL_WindowFlags f=SDL_WINDOW_RESIZABLE;if(config_.fullscreen)f|=SDL_WINDOW_FULLSCREEN;
- window_=SDL_CreateWindow(config_.title.c_str(),config_.width,config_.height,f);if(!window_)return false;
- renderer_=SDL_CreateRenderer(window_,nullptr);if(!renderer_)return false;SDL_SetRenderVSync(renderer_,config_.vsync?1:0);if(!atlas_.create(renderer_)){projectmc::log(projectmc::LogLevel::Error,"Failed to create block texture atlas");return false;}
- SDL_SetWindowRelativeMouseMode(window_,true);world_.generateTerrain(2);running_=true;return true;
+ window_=SDL_CreateWindow(config_.title.c_str(),config_.width,config_.height,f);
+ if(!window_){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_CreateWindow failed: ")+SDL_GetError());return false;}
+ SDL_ShowWindow(window_);SDL_RaiseWindow(window_);
+ projectmc::log(projectmc::LogLevel::Info,"Creating renderer...");
+ renderer_=SDL_CreateRenderer(window_,nullptr);
+ if(!renderer_){projectmc::log(projectmc::LogLevel::Error,std::string("SDL_CreateRenderer failed: ")+SDL_GetError());return false;}
+ SDL_SetRenderVSync(renderer_,config_.vsync?1:0);
+ projectmc::log(projectmc::LogLevel::Info,"Creating texture atlas...");
+ if(!atlas_.create(renderer_)){projectmc::log(projectmc::LogLevel::Error,std::string("Texture atlas failed: ")+SDL_GetError());return false;}
+ projectmc::log(projectmc::LogLevel::Info,"Generating spawn terrain...");
+ world_.generateTerrain(2);
+ // Pump the window once before grabbing the mouse. On Windows this avoids capturing
+ // input while the SDL window is still being created/activated.
+ SDL_PumpEvents();SDL_RaiseWindow(window_);
+ if(!SDL_SetWindowRelativeMouseMode(window_,true))
+  projectmc::log(projectmc::LogLevel::Warning,std::string("Relative mouse mode unavailable: ")+SDL_GetError());
+ running_=true;
+ projectmc::log(projectmc::LogLevel::Info,"Game initialised - entering main loop.");
+ return true;
 }
 void Application::processEvents(){
  input_.mouseDeltaX=input_.mouseDeltaY=0;input_.removeBlock=input_.placeBlock=false;input_.hotbarSelection=-1;
