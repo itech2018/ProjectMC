@@ -41,6 +41,14 @@ set(PROJECTMC_SHADER_SOURCES
 target_sources(projectmc-game PRIVATE ${PROJECTMC_SHADER_SOURCES})
 source_group("Shaders" FILES ${PROJECTMC_SHADER_SOURCES})
 
+# These are canonical shader sources, not Visual Studio FXC build inputs.
+# SDL_shadercross owns compilation so it can emit the backend formats SDL_GPU
+# expects. HEADER_FILE_ONLY keeps the sources visible in the IDE without MSVC
+# attempting an older default HLSL profile during projectmc-game builds.
+set_source_files_properties(${PROJECTMC_SHADER_SOURCES} PROPERTIES
+  HEADER_FILE_ONLY TRUE
+)
+
 find_program(PROJECTMC_SHADERCROSS NAMES shadercross SDL_shadercross)
 if(PROJECTMC_SHADERCROSS)
   set(PROJECTMC_SHADER_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)
