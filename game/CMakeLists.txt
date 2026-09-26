@@ -49,20 +49,59 @@ set_source_files_properties(${PROJECTMC_SHADER_SOURCES} PROPERTIES
   HEADER_FILE_ONLY TRUE
 )
 
-find_program(PROJECTMC_SHADERCROSS NAMES shadercross SDL_shadercross)
-if(PROJECTMC_SHADERCROSS)
-  set(PROJECTMC_SHADER_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)
-  file(MAKE_DIRECTORY ${PROJECTMC_SHADER_OUTPUT_DIR})
-  add_custom_target(projectmc-shaders
-    COMMAND ${CMAKE_COMMAND} -E echo "SDL_shadercross detected: ${PROJECTMC_SHADERCROSS}"
-    COMMAND ${CMAKE_COMMAND} -E echo "Shader binary generation will be enabled with the GPU activation step."
-    SOURCES ${PROJECTMC_SHADER_SOURCES}
+# Compile the Windows SDL_GPU shaders to DXIL with Microsoft's DirectX
+# Shader Compiler when it is available. The runtime loader expects these exact
+# names under <exe>/shaders.
+if(WIN32)
+  find_program(PROJECTMC_DXC NAMES dxc dxc.exe
+    HINTS
+      "$ENV{WindowsSdkDir}/bin/$ENV{WindowsSDKVersion}/x64"
+      "$ENV{WindowsSdkDir}/bin/x64"
+  )
+else()
+  find_program(PROJECTMC_DXC NAMES dxc)
+endif()
+
+set(PROJECTMC_SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+file(MAKE_DIRECTORY "${PROJECTMC_SHADER_OUTPUT_DIR}")
+
+if(PROJECTMC_DXC)
+  add_custom_command(
+    OUTPUT
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.vert.dxil"
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.frag.dxil"
+    COMMAND "${PROJECTMC_DXC}" -T vs_6_0 -E main
+      -Fo "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.vert.dxil"
+      "${CMAKE_CURRENT_SOURCE_DIR}/shaders/voxel.vert.hlsl"
+    COMMAND "${PROJECTMC_DXC}" -T ps_6_0 -E main
+      -Fo "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.frag.dxil"
+      "${CMAKE_CURRENT_SOURCE_DIR}/shaders/voxel.frag.hlsl"
+    DEPENDS ${PROJECTMC_SHADER_SOURCES}
+    COMMENT "Compiling ProjectMC voxel shaders to DXIL"
     VERBATIM
+  )
+  add_custom_target(projectmc-shaders ALL
+    DEPENDS
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.vert.dxil"
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.frag.dxil"
+  )
+  add_dependencies(projectmc-game projectmc-shaders)
+
+  add_custom_command(TARGET projectmc-game POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:projectmc-game>/shaders"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.vert.dxil"
+      "$<TARGET_FILE_DIR:projectmc-game>/shaders/voxel.vert.dxil"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${PROJECTMC_SHADER_OUTPUT_DIR}/voxel.frag.dxil"
+      "$<TARGET_FILE_DIR:projectmc-game>/shaders/voxel.frag.dxil"
+    COMMENT "Packaging ProjectMC DXIL shaders"
   )
 else()
   add_custom_target(projectmc-shaders
-    COMMAND ${CMAKE_COMMAND} -E echo "SDL_shadercross not installed - shader sources are available but GPU shader binaries are not generated yet."
+    COMMAND ${CMAKE_COMMAND} -E echo "DXC was not found. Install the DirectX Shader Compiler or place dxc.exe on PATH to build the experimental SDL_GPU renderer."
     SOURCES ${PROJECTMC_SHADER_SOURCES}
     VERBATIM
   )
+  message(STATUS "ProjectMC: DXC not found; compatibility renderer will still build.")
 endif()
