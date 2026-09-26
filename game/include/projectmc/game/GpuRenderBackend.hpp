@@ -33,7 +33,7 @@ public:
  void releaseMesh(BufferPair& mesh);
  void drawIndexed(const BufferPair& mesh,bool transparent=false);
  void drawHud(int selectedSlot);
- void drawMenu(int screen,int selectedIndex,int itemCount,const std::string& worldName={});
+ void drawMenu(int screen,int selectedIndex,int itemCount,const std::string& worldName={},const std::string& seedText={});
  void drawSelection(int x,int y,int z);
  bool createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader);
  [[nodiscard]] bool worldPipelineReady() const noexcept { return worldPipeline_!=nullptr; }
