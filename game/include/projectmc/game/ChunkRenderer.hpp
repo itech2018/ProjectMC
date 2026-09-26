@@ -37,6 +37,7 @@ private:
   float u{},v{};
   float shade{1.0f};
   float opacity{1.0f};
+  float atlasU0{},atlasV0{},atlasU1{},atlasV1{};
  };
  struct IndexedMesh {
   std::vector<GpuVertex> vertices;
@@ -56,7 +57,7 @@ private:
  };
 
  void rebuildMesh(const world::ChunkPosition&, const world::Chunk&, const world::World&, const TextureAtlas&);
- static void appendGpuQuad(IndexedMesh&, const Quad&);
+ static void appendGpuQuad(IndexedMesh&, const Quad&, float tileU=1.0f, float tileV=1.0f);
  std::unordered_map<world::ChunkPosition,ChunkMesh,world::ChunkPositionHash> meshes_;
  std::unordered_map<world::ChunkPosition,DeviceChunkMesh,world::ChunkPositionHash> gpuMeshes_;
  std::size_t nextRevision_{1};
