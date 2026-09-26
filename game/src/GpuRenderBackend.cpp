@@ -511,8 +511,6 @@ void GpuRenderBackend::beginFrame(const Camera& camera) {
  if(!device_||!window_) return;
 
  commandBuffer_=SDL_AcquireGPUCommandBuffer(device_);
- if(commandBuffer_&&worldPipeline_)
-  SDL_PushGPUVertexUniformData(commandBuffer_,0,matrices_.viewProjection.m.data(),static_cast<Uint32>(sizeof(matrices_.viewProjection.m)));
  if(!commandBuffer_) {
   projectmc::log(projectmc::LogLevel::Warning,std::string("Could not acquire GPU command buffer: ")+SDL_GetError());
   return;
@@ -533,6 +531,10 @@ void GpuRenderBackend::beginFrame(const Camera& camera) {
   createDepthTarget();
   matrices_.update(camera,width_,height_);
  }
+ // Push the final camera matrix only after the real swapchain dimensions are known.
+ // This keeps world geometry and the depth-tested selection pass on the same projection.
+ if(worldPipeline_)
+  SDL_PushGPUVertexUniformData(commandBuffer_,0,matrices_.viewProjection.m.data(),static_cast<Uint32>(sizeof(matrices_.viewProjection.m)));
 
  SDL_GPUColorTargetInfo color{};
  color.texture=swapchainTexture_;
