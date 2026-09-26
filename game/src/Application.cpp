@@ -10,19 +10,19 @@ Application::~Application(){if(renderer_)SDL_DestroyRenderer(renderer_);if(windo
 bool Application::initialize(){
  projectmc::log(projectmc::LogLevel::Info,"Preparing SDL video...");
 #ifdef _WIN32
- // SDL's automatic Windows video-driver probing has been observed to stall on
- // some machines during the first process launch. ProjectMC only needs the
- // native Win32 backend here, so select it before SDL initialises video.
- if(!SDL_SetHint(SDL_HINT_VIDEO_DRIVER,"windows"))
-  projectmc::log(projectmc::LogLevel::Warning,"Could not set SDL Windows video-driver hint.");
+ // Default to the native Win32 backend, but allow PROJECTMC_SDL_VIDEO_DRIVER
+ // to override it for diagnosing driver-specific startup failures.
+ const char*requested=SDL_getenv("PROJECTMC_SDL_VIDEO_DRIVER");
+ if(!requested||!*requested)requested="windows";
+ projectmc::log(projectmc::LogLevel::Info,"Requested SDL video driver: "+std::string(requested));
+ if(!SDL_SetHint(SDL_HINT_VIDEO_DRIVER,requested))
+  projectmc::log(projectmc::LogLevel::Warning,"Could not set SDL video-driver hint.");
 #endif
  int videoDrivers=SDL_GetNumVideoDrivers();
  projectmc::log(projectmc::LogLevel::Info,"SDL reports "+std::to_string(videoDrivers)+" video driver(s).");
  for(int i=0;i<videoDrivers;++i){const char*d=SDL_GetVideoDriver(i);if(d)projectmc::log(projectmc::LogLevel::Info,"SDL video driver: "+std::string(d));}
- projectmc::log(projectmc::LogLevel::Info,"Initialising SDL events...");
- if(!SDL_InitSubSystem(SDL_INIT_EVENTS)){projectmc::log(projectmc::LogLevel::Error,std::string("SDL events init failed: ")+SDL_GetError());return false;}
- projectmc::log(projectmc::LogLevel::Info,"Initialising SDL video...");
- if(!SDL_InitSubSystem(SDL_INIT_VIDEO)){projectmc::log(projectmc::LogLevel::Error,std::string("SDL video init failed: ")+SDL_GetError());return false;}
+ projectmc::log(projectmc::LogLevel::Info,"Initialising SDL video + events...");
+ if(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_EVENTS)){projectmc::log(projectmc::LogLevel::Error,std::string("SDL init failed: ")+SDL_GetError());return false;}
  const char*activeDriver=SDL_GetCurrentVideoDriver();
  projectmc::log(projectmc::LogLevel::Info,std::string("SDL video ready: ")+(activeDriver?activeDriver:"unknown"));
  projectmc::log(projectmc::LogLevel::Info,"Creating game window...");
