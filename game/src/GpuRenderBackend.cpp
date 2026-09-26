@@ -6,6 +6,8 @@
 namespace projectmc::game {
 
 GpuRenderBackend::~GpuRenderBackend() {
+ if(device_&&worldPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,worldPipeline_);
+ worldPipeline_=nullptr;
  destroyDepthTarget();
  if(device_) {
   if(window_) SDL_ReleaseWindowFromGPUDevice(device_,window_);
@@ -60,6 +62,48 @@ bool GpuRenderBackend::createDepthTarget() {
   return false;
  }
  return true;
+}
+
+bool GpuRenderBackend::createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader) {
+ if(!device_||!vertexShader||!fragmentShader) return false;
+ if(worldPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,worldPipeline_);
+
+ SDL_GPUVertexBufferDescription buffer{};
+ buffer.slot=0;
+ buffer.pitch=7*sizeof(float);
+ buffer.input_rate=SDL_GPU_VERTEXINPUTRATE_VERTEX;
+
+ SDL_GPUVertexAttribute attrs[4]{};
+ attrs[0]={0,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,0};
+ attrs[1]={1,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,3*sizeof(float)};
+ attrs[2]={2,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT,5*sizeof(float)};
+ attrs[3]={3,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT,6*sizeof(float)};
+
+ SDL_GPUColorTargetDescription color{};
+ color.format=SDL_GetGPUSwapchainTextureFormat(device_,window_);
+
+ SDL_GPUGraphicsPipelineCreateInfo info{};
+ info.vertex_shader=vertexShader;
+ info.fragment_shader=fragmentShader;
+ info.vertex_input_state.vertex_buffer_descriptions=&buffer;
+ info.vertex_input_state.num_vertex_buffers=1;
+ info.vertex_input_state.vertex_attributes=attrs;
+ info.vertex_input_state.num_vertex_attributes=4;
+ info.primitive_type=SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+ info.rasterizer_state.fill_mode=SDL_GPU_FILLMODE_FILL;
+ info.rasterizer_state.cull_mode=SDL_GPU_CULLMODE_BACK;
+ info.rasterizer_state.front_face=SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+ info.depth_stencil_state.compare_op=SDL_GPU_COMPAREOP_LESS;
+ info.depth_stencil_state.enable_depth_test=true;
+ info.depth_stencil_state.enable_depth_write=true;
+ info.target_info.color_target_descriptions=&color;
+ info.target_info.num_color_targets=1;
+ info.target_info.depth_stencil_format=SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+ info.target_info.has_depth_stencil_target=true;
+
+ worldPipeline_=SDL_CreateGPUGraphicsPipeline(device_,&info);
+ if(!worldPipeline_) projectmc::log(projectmc::LogLevel::Warning,std::string("Could not create GPU world pipeline: ")+SDL_GetError());
+ return worldPipeline_!=nullptr;
 }
 
 bool GpuRenderBackend::uploadMesh(const void* vertices,Uint32 vertexBytes,const void* indices,Uint32 indexBytes,Uint32 indexCount,BufferPair& out) {
