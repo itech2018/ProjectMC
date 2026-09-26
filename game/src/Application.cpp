@@ -5,6 +5,8 @@
 #include <chrono>
 #include <cmath>
 #include <utility>
+#include <sstream>
+#include <iomanip>
 namespace projectmc::game {
 constexpr float PI=3.14159265358979323846f;
 Application::Application(projectmc::GameConfig c):config_(std::move(c)){}
@@ -185,5 +187,29 @@ void Application::render(){
  SDL_SetRenderDrawColor(renderer_,255,255,255,255);SDL_RenderLine(renderer_,w/2-6,h/2,w/2+6,h/2);SDL_RenderLine(renderer_,w/2,h/2-6,w/2,h/2+6);
  SDL_RenderPresent(renderer_);if(renderBackend_)renderBackend_->endFrame();
 }
-int Application::run(){using C=std::chrono::steady_clock;auto p=C::now();while(running_){auto n=C::now();std::chrono::duration<double>d=n-p;p=n;processEvents();update(d.count());render();}return 0;}
+int Application::run(){
+ using C=std::chrono::steady_clock;
+ auto p=C::now();
+ while(running_){
+  auto n=C::now();
+  std::chrono::duration<double>d=n-p;p=n;
+  processEvents();update(d.count());render();
+
+  fpsAccumulator_+=d.count();
+  ++fpsFrames_;
+  if(fpsAccumulator_>=0.5){
+   displayedFps_=fpsFrames_/fpsAccumulator_;
+   fpsAccumulator_=0.0;fpsFrames_=0;
+   const auto s=chunkRenderer_.stats();
+   std::ostringstream title;
+   title<<config_.title<<" | "<<std::fixed<<std::setprecision(0)<<displayedFps_<<" FPS"
+    <<" | chunks "<<s.renderedChunks<<"/"<<s.loadedChunks
+    <<" | quads "<<s.opaqueQuads<<"+"<<s.transparentQuads
+    <<" | verts "<<s.gpuVertices
+    <<" | tris "<<s.gpuTriangles;
+   SDL_SetWindowTitle(window_,title.str().c_str());
+  }
+ }
+ return 0;
+}
 }
