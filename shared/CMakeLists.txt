@@ -6,6 +6,7 @@ add_library(projectmc-shared STATIC
   src/world/Chunk.cpp
   src/world/World.cpp
   src/world/WorldMetadata.cpp
+  src/world/WorldManager.cpp
   src/world/TerrainGenerator.cpp
 )
 target_include_directories(projectmc-shared PUBLIC include)
