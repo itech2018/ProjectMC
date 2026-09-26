@@ -24,5 +24,8 @@ private:
   int selectedSlot_{0};
   bool running_{false};
   bool gpuMode_{true};
+  double fpsAccumulator_{0.0};
+  int fpsFrames_{0};
+  double displayedFps_{0.0};
 };
 }
