@@ -53,8 +53,12 @@ bool Application::initialize(){
   renderBackend_=std::move(fallback);
  }
  projectmc::log(projectmc::LogLevel::Info,std::string("Render backend: ")+renderBackend_->name());
- if(!gpuTestMode_){
-  projectmc::log(projectmc::LogLevel::Info,"Creating texture atlas...");
+ projectmc::log(projectmc::LogLevel::Info,"Creating texture atlas...");
+ if(gpuTestMode_){
+  if(!atlas_.createCpu()){projectmc::log(projectmc::LogLevel::Error,"CPU texture atlas generation failed.");return false;}
+  auto* gpu=dynamic_cast<GpuRenderBackend*>(renderBackend_.get());
+  if(!gpu||!gpu->uploadAtlas(atlas_)){projectmc::log(projectmc::LogLevel::Error,std::string("GPU texture atlas upload failed: ")+SDL_GetError());return false;}
+ }else{
   if(!atlas_.create(renderer_)){projectmc::log(projectmc::LogLevel::Error,std::string("Texture atlas failed: ")+SDL_GetError());return false;}
  }
  projectmc::log(projectmc::LogLevel::Info,"Generating spawn terrain...");
