@@ -3,6 +3,7 @@
 #include <SDL3/SDL_gpu.h>
 #include "projectmc/game/RenderBackend.hpp"
 #include "projectmc/game/RenderMath.hpp"
+#include "projectmc/game/TextureAtlas.hpp"
 #include <string>
 
 namespace projectmc::game {
@@ -27,6 +28,7 @@ public:
   SDL_GPUBuffer* index{nullptr};
   Uint32 indexCount{0};
  };
+ bool uploadAtlas(const TextureAtlas& atlas);
  bool uploadMesh(const void* vertices,Uint32 vertexBytes,const void* indices,Uint32 indexBytes,Uint32 indexCount,BufferPair& out);
  void releaseMesh(BufferPair& mesh);
  void drawIndexed(const BufferPair& mesh);
@@ -42,6 +44,8 @@ private:
  SDL_Window* window_{nullptr};
  SDL_GPUDevice* device_{nullptr};
  SDL_GPUTexture* depthTexture_{nullptr};
+ SDL_GPUTexture* atlasTexture_{nullptr};
+ SDL_GPUSampler* atlasSampler_{nullptr};
  SDL_GPUCommandBuffer* commandBuffer_{nullptr};
  SDL_GPUTexture* swapchainTexture_{nullptr};
  SDL_GPURenderPass* renderPass_{nullptr};
