@@ -14,6 +14,7 @@ public:
  [[nodiscard]] BlockRegistry& blocks()noexcept{return blocks_;}[[nodiscard]] const BlockRegistry& blocks()const noexcept{return blocks_;}
  [[nodiscard]] const auto& chunks()const noexcept{return chunks_;}
  void generateTerrain(int radius);void updateStreaming(float playerX,float playerZ,int radius);
+ void reset(std::uint64_t seed=0);
  bool loadOverrides(const std::string& path);
  bool saveOverrides(const std::string& path) const;
  [[nodiscard]] std::size_t overrideCount() const noexcept{return overrides_.size();}
