@@ -19,6 +19,7 @@ add_executable(projectmc-game
   src/ChunkRenderer.cpp
   src/Player.cpp
   src/Raycast.cpp
+  src/RenderBackend.cpp
   src/TextureAtlas.cpp
 )
 target_include_directories(projectmc-game PRIVATE include)
