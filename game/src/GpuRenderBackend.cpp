@@ -501,10 +501,11 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const
   const int visible=std::min(5,std::max(0,itemCount-listOffset));
   for(int row=0;row<visible;++row){int i=listOffset+row;float y=.31f-row*.13f;bool s=i==selectedIndex;add(0,y,.48f,.05f,s?.25f:.15f,s?.52f:.19f,s?.78f:.25f,1);}
   int action=selectedIndex-itemCount;
-  add(-.25f,-.39f,.19f,.05f,action==0?.28f:.18f,action==0?.58f:.42f,action==0?.84f:.62f,1);
-  add(.25f,-.39f,.19f,.05f,action==1?.28f:.18f,action==1?.58f:.35f,action==1?.84f:.52f,1);
-  add(-.25f,-.53f,.19f,.05f,action==2?.55f:.34f,action==2?.24f:.17f,action==2?.24f:.17f,1);
-  add(.25f,-.53f,.19f,.05f,action==3?.32f:.20f,action==3?.36f:.23f,action==3?.42f:.28f,1);
+  add(0,-.31f,.19f,.045f,action==0?.28f:.18f,action==0?.58f:.42f,action==0?.84f:.62f,1);
+  add(-.25f,-.43f,.19f,.045f,action==1?.28f:.18f,action==1?.58f:.42f,action==1?.84f:.62f,1);
+  add(.25f,-.43f,.19f,.045f,action==2?.28f:.18f,action==2?.58f:.35f,action==2?.84f:.52f,1);
+  add(-.25f,-.55f,.19f,.045f,action==3?.55f:.34f,action==3?.24f:.17f,action==3?.24f:.17f,1);
+  add(.25f,-.55f,.19f,.045f,action==4?.32f:.20f,action==4?.36f:.23f,action==4?.42f:.28f,1);
  }else if(screen==2){add(0,.20f,.44f,.055f,.16f,.21f,.28f,1);add(0,.04f,.44f,.055f,.16f,.21f,.28f,1);add(-.23f,-.48f,.19f,.055f,.20f,.48f,.72f,1);add(.23f,-.48f,.19f,.055f,.25f,.28f,.32f,1);}
  else if(screen==3){add(0,.16f,.44f,.055f,.16f,.21f,.28f,1);add(-.23f,-.48f,.19f,.055f,.20f,.48f,.72f,1);add(.23f,-.48f,.19f,.055f,.25f,.28f,.32f,1);}
  else {add(0,.12f,.44f,.065f,.20f,.18f,.18f,1);add(-.23f,-.48f,.19f,.055f,.50f,.18f,.18f,1);add(.23f,-.48f,.19f,.055f,.25f,.28f,.32f,1);}
@@ -527,7 +528,7 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const
  };
  drawText("PROJECTMC",0,.55f,.012f);
  if(screen==0){drawText("SINGLEPLAYER",0,.12f,.009f);drawText("QUIT",0,-.08f,.009f);}
- else if(screen==1){drawText("SINGLEPLAYER",0,.445f,.009f);std::string n=worldName.empty()?"SELECT A WORLD":worldName;if(n.size()>28)n.resize(28);drawText(n,0,.31f,.007f);drawText("CREATE",-.25f,-.39f,.007f);drawText("RENAME",.25f,-.39f,.007f);drawText("DELETE",-.25f,-.53f,.007f);drawText("BACK",.25f,-.53f,.007f);}
+ else if(screen==1){drawText("SINGLEPLAYER",0,.445f,.009f);std::string n=worldName.empty()?"SELECT A WORLD":worldName;if(n.size()>28)n.resize(28);drawText(n,0,.31f,.007f);drawText("PLAY",0,-.31f,.007f);drawText("CREATE",-.25f,-.43f,.007f);drawText("RENAME",.25f,-.43f,.007f);drawText("DELETE",-.25f,-.55f,.007f);drawText("BACK",.25f,-.55f,.007f);}
  else if(screen==2){drawText("CREATE WORLD",0,.445f,.009f);drawText("NAME",-.34f,.20f,.0065f);drawText(worldName,0,.20f,.0065f);drawText("SEED",-.34f,.04f,.0065f);drawText(seedText.empty()?"RANDOM":seedText,0,.04f,.0065f);drawText("CREATE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
  else if(screen==3){drawText("RENAME WORLD",0,.445f,.009f);drawText("NAME",-.34f,.16f,.0065f);drawText(worldName,0,.16f,.0065f);drawText("SAVE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
  else {drawText("DELETE WORLD",0,.445f,.009f);drawText(worldName,0,.12f,.007f);drawText("DELETE",-.23f,-.48f,.007f);drawText("CANCEL",.23f,-.48f,.007f);}
