@@ -19,7 +19,7 @@ BlockId World::getBlock(int x,int y,int z)const{if(y<0||y>=Chunk::Height)return 
 void World::markDirty(const ChunkPosition&p){dirty_.insert(p);}
 bool World::setBlock(int x,int y,int z,BlockId b){if(y<0||y>=Chunk::Height)return false;int cx=floorDiv(x,Chunk::Width),cz=floorDiv(z,Chunk::Depth),lx=floorMod(x,Chunk::Width),lz=floorMod(z,Chunk::Depth);chunk({cx,0,cz}).set(lx,y,lz,b);overrides_.insert_or_assign({x,y,z},b);markDirty({cx,0,cz});if(lx==0)markDirty({cx-1,0,cz});if(lx==Chunk::Width-1)markDirty({cx+1,0,cz});if(lz==0)markDirty({cx,0,cz-1});if(lz==Chunk::Depth-1)markDirty({cx,0,cz+1});return true;}
 void World::generateChunk(int cx,int cz){
- Chunk c;TerrainGenerator(blocks_).generate(c,cx,cz);
+ Chunk c;TerrainGenerator(blocks_,seed_).generate(c,cx,cz);
  for(const auto& [p,id]:overrides_) {
   if(floorDiv(p.x,Chunk::Width)==cx&&floorDiv(p.z,Chunk::Depth)==cz&&p.y>=0&&p.y<Chunk::Height)
    c.set(floorMod(p.x,Chunk::Width),p.y,floorMod(p.z,Chunk::Depth),id);
