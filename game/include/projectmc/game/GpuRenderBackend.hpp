@@ -28,6 +28,7 @@ public:
  };
  bool uploadMesh(const void* vertices,Uint32 vertexBytes,const void* indices,Uint32 indexBytes,Uint32 indexCount,BufferPair& out);
  void releaseMesh(BufferPair& mesh);
+ bool createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader);
 
 private:
  void destroyDepthTarget();
@@ -38,6 +39,7 @@ private:
  SDL_GPUTexture* depthTexture_{nullptr};
  SDL_GPUCommandBuffer* commandBuffer_{nullptr};
  SDL_GPUTexture* swapchainTexture_{nullptr};
+ SDL_GPUGraphicsPipeline* worldPipeline_{nullptr};
  CameraMatrices matrices_{};
  int width_{0};
  int height_{0};
