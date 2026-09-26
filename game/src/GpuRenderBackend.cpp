@@ -4,6 +4,8 @@
 #include <string>
 #include <cstring>
 #include <filesystem>
+#include <cctype>
+#include <utility>
 
 namespace projectmc::game {
 
@@ -487,7 +489,7 @@ void GpuRenderBackend::drawHud(int selectedSlot) {
  SDL_DrawGPUPrimitives(renderPass_,data.rectCount*6,1,0,0);
 }
 
-void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount) {
+void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount,const std::string& worldName) {
  if(!renderPass_||!hudPipeline_||!commandBuffer_) return;
  struct HudData { float rects[12][4]{};float colors[12][4]{};Uint32 rectCount{};float padding[3]{}; } data;
  auto add=[&](float cx,float cy,float hx,float hy,float r,float g,float b,float a){
@@ -495,16 +497,12 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount) {
   data.rects[i][0]=cx;data.rects[i][1]=cy;data.rects[i][2]=hx;data.rects[i][3]=hy;
   data.colors[i][0]=r;data.colors[i][1]=g;data.colors[i][2]=b;data.colors[i][3]=a;
  };
- // Dark translucent centre panel and a small ProjectMC-style header mark.
  add(0,0,.43f,.62f,.08f,.10f,.13f,.94f);
  add(0,.43f,.27f,.055f,.24f,.55f,.82f,1.0f);
  if(screen==0) {
-  // Main menu: Singleplayer, Quit.
   for(int i=0;i<2;++i){const float y=.12f-i*.20f;const bool selected=i==selectedIndex;
    add(0,y,.30f,.065f,selected?.32f:.18f,selected?.62f:.22f,selected?.88f:.28f,1.0f);}
  } else {
-  // World list rows. Text/details are mirrored into the native window title
-  // until the bitmap/font renderer lands in the next UI pass.
   const int visible=itemCount<5?itemCount:5;
   for(int i=0;i<visible;++i){const float y=.22f-i*.15f;const bool selected=i==selectedIndex;
    add(0,y,.34f,.052f,selected?.32f:.18f,selected?.62f:.22f,selected?.88f:.28f,1.0f);}
@@ -514,6 +512,47 @@ void GpuRenderBackend::drawMenu(int screen,int selectedIndex,int itemCount) {
  SDL_PushGPUVertexUniformData(commandBuffer_,0,&data,sizeof(data));
  SDL_BindGPUGraphicsPipeline(renderPass_,hudPipeline_);
  SDL_DrawGPUPrimitives(renderPass_,data.rectCount*6,1,0,0);
+
+ // First text pass: draw a compact 5x7 bitmap font as tiny HUD rectangles.
+ // This deliberately shares the existing HUD pipeline, so menus gain readable
+ // text without adding a texture/font dependency or another shader pipeline.
+ static const std::pair<char,const char*> glyphs[]={
+  {'A',"011101000110001111111000110001"},{'B',"111101000111110100011000111110"},
+  {'C',"011111000010000100001000001111"},{'D',"111101000110001100011000111110"},
+  {'E',"111111000011110100001000011111"},{'F',"111111000011110100001000010000"},
+  {'G',"011111000010111100011000101110"},{'I',"111110010000100001000010011111"},
+  {'L',"100001000010000100001000011111"},{'M',"100011101110101101011000110001"},
+  {'N',"100011100110101100111000110001"},{'O',"011101000110001100011000101110"},
+  {'P',"111101000110001111101000010000"},{'Q',"011101000110001101011001001101"},
+  {'R',"111101000110001111101010010001"},{'S',"011111000001110000010000111110"},
+  {'T',"111110010000100001000010000100"},{'U',"100011000110001100011000101110"},
+  {'W',"100011000110101101011010101010"},{'Y',"100011000101010001000010000100"},
+  {'J',"001110001000010000101001001100"},{'V',"100011000110001100010101000100"},
+  {'0',"011101000110011101011100101110"},{'1',"001000110000100001000010001110"},
+  {'2',"011101000100001001100100011111"},{'3',"111100000100110000011000111110"},
+  {'4',"100011000111111000010000100001"},{'5',"111111000011110000011000111110"},
+  {'6',"011111000011110100011000101110"},{'7',"111110000100010001000100001000"},
+  {'8',"011101000101110100011000101110"},{'9',"011101000110001011110000111110"},
+  {'-',"000000000000000111110000000000"},{':',"000000010000000000000100000000"}
+ };
+ auto bits=[&](char ch)->const char*{ch=(char)std::toupper((unsigned char)ch);for(const auto& g:glyphs)if(g.first==ch)return g.second;return nullptr;};
+ auto textWidth=[](const std::string&s,float scale){return s.empty()?0.0f:(float)s.size()*6.0f*scale-scale;};
+ auto drawText=[&](std::string text,float cx,float cy,float scale,float r,float g,float b){
+  float x=cx-textWidth(text,scale)*.5f;
+  for(char ch:text){const char* p=bits(ch);if(p)for(int row=0;row<6;++row)for(int col=0;col<5;++col)if(p[row*5+col]=='1'){
+    HudData d{};d.rectCount=1;d.rects[0][0]=x+col*scale;d.rects[0][1]=cy-row*scale;
+    d.rects[0][2]=scale*.48f;d.rects[0][3]=scale*.48f;d.colors[0][0]=r;d.colors[0][1]=g;d.colors[0][2]=b;d.colors[0][3]=1;
+    SDL_PushGPUVertexUniformData(commandBuffer_,0,&d,sizeof(d));SDL_BindGPUGraphicsPipeline(renderPass_,hudPipeline_);SDL_DrawGPUPrimitives(renderPass_,6,1,0,0);
+   }x+=6*scale;}
+ };
+ drawText("PROJECTMC",0,.455f,.012f,1,1,1);
+ if(screen==0){drawText("SINGLEPLAYER",0,.135f,.008f,1,1,1);drawText("QUIT",0,-.065f,.008f,1,1,1);}
+ else {
+  drawText("SINGLEPLAYER",0,.36f,.009f,1,1,1);
+  std::string shown=worldName.empty()?"WORLD":worldName;if(shown.size()>24)shown.resize(24);
+  drawText(shown,0,.235f,.0075f,1,1,1);
+  drawText("PLAY",- .18f,-.455f,.0075f,1,1,1);drawText("BACK",.18f,-.455f,.0075f,1,1,1);
+ }
 }
 
 void GpuRenderBackend::releaseMesh(BufferPair& mesh) {
