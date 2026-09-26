@@ -42,6 +42,7 @@ private:
   std::string createWorldSeed_{};
   int createField_{0};
   int worldListOffset_{0};
+  int selectedWorld_{0};
   std::string renameWorldName_{};
   int confirmSelection_{0};
 };
