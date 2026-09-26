@@ -5,6 +5,7 @@
 #include "projectmc/game/RenderMath.hpp"
 #include "projectmc/game/TextureAtlas.hpp"
 #include <string>
+#include <vector>
 
 namespace projectmc::game {
 
@@ -33,7 +34,7 @@ public:
  void releaseMesh(BufferPair& mesh);
  void drawIndexed(const BufferPair& mesh,bool transparent=false);
  void drawHud(int selectedSlot);
- void drawMenu(int screen,int selectedIndex,int itemCount,const std::string& worldName={},const std::string& seedText={},int listOffset=0);
+ void drawMenu(int screen,int selectedIndex,int itemCount,const std::string& worldName={},const std::string& seedText={},int listOffset=0,const std::vector<std::string>& worldNames={});
  void drawSelection(int x,int y,int z);
  bool createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader);
  [[nodiscard]] bool worldPipelineReady() const noexcept { return worldPipeline_!=nullptr; }
