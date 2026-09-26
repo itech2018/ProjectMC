@@ -126,6 +126,28 @@ void ChunkRenderer::renderWorld(SDL_Renderer* r,const world::World&,const Textur
  };
 
  for(const auto& [pos,mesh]:meshes_) {
+  // Reject entire chunks before touching individual quads. Use a conservative
+  // bounding sphere so chunks near the edge of the view are not popped early.
+  const float minX=static_cast<float>(pos.x*world::Chunk::Width);
+  const float minY=static_cast<float>(pos.y*world::Chunk::Height);
+  const float minZ=static_cast<float>(pos.z*world::Chunk::Depth);
+  const float centerX=minX+world::Chunk::Width*.5f;
+  const float centerY=minY+world::Chunk::Height*.5f;
+  const float centerZ=minZ+world::Chunk::Depth*.5f;
+  const float dx=centerX-cam.position.x;
+  const float dy=centerY-cam.position.y;
+  const float dz=centerZ-cam.position.z;
+  const float horizontal=dx*forwardX+dz*forwardZ;
+  const float cameraDepth=dy*sp+horizontal*cp;
+  constexpr float chunkRadius=13.9f; // conservative radius for a 16^3 chunk
+  if(cameraDepth < -chunkRadius) continue;
+
+  // Horizontal frustum test. Keep a generous margin for the chunk sphere.
+  const float cameraRight=dx*rightX+dz*rightZ;
+  const float halfHFov=std::atan(std::tan(cam.fieldOfView*pi/360.0f)*(static_cast<float>(w)/static_cast<float>(h)));
+  const float sideLimit=std::max(cameraDepth,0.0f)*std::tan(halfHFov)+chunkRadius;
+  if(std::abs(cameraRight)>sideLimit) continue;
+
   auto collect=[&](const std::vector<Quad>& source,bool transparent) {
    for(const auto& q:source) {
     const float uv[4][2]={{q.uv.u0,q.uv.v1},{q.uv.u0,q.uv.v0},{q.uv.u1,q.uv.v0},{q.uv.u1,q.uv.v1}};
