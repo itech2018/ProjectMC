@@ -162,6 +162,8 @@ void Application::render(){
   SDL_GetWindowSizeInPixels(window_,&w,&h);
   gpu->beginFrame(camera_);
   chunkRenderer_.renderGpuWorld(*gpu,camera_,w,h);
+  const auto hit=raycastBlocks(world_,camera_);
+  if(hit.hit) gpu->drawSelection(hit.x,hit.y,hit.z);
   gpu->drawHud(selectedSlot_);
   gpu->endFrame();
   return;
