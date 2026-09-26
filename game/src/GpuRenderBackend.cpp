@@ -12,6 +12,7 @@ GpuRenderBackend::~GpuRenderBackend() {
  if(device_&&atlasTexture_) SDL_ReleaseGPUTexture(device_,atlasTexture_);
  atlasSampler_=nullptr;
  atlasTexture_=nullptr;
+ if(device_&&selectionPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,selectionPipeline_);
  if(device_&&hudPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,hudPipeline_);
  if(device_&&hudVertexShader_) SDL_ReleaseGPUShader(device_,hudVertexShader_);
  if(device_&&hudFragmentShader_) SDL_ReleaseGPUShader(device_,hudFragmentShader_);
@@ -22,6 +23,7 @@ GpuRenderBackend::~GpuRenderBackend() {
  worldPipeline_=nullptr;
  transparentPipeline_=nullptr;
  hudPipeline_=nullptr;
+ selectionPipeline_=nullptr;
  hudVertexShader_=nullptr;
  hudFragmentShader_=nullptr;
  worldVertexShader_=nullptr;
@@ -99,7 +101,7 @@ bool GpuRenderBackend::loadHudShaders() {
  const std::string vertexPath=shaderPath("hud.vert");
  const std::string fragmentPath=shaderPath("hud.frag");
  if(vertexPath.empty()||fragmentPath.empty()) return false;
- hudVertexShader_=GpuShaderLoader::load(device_,vertexPath,SDL_GPU_SHADERSTAGE_VERTEX,0,0);
+ hudVertexShader_=GpuShaderLoader::load(device_,vertexPath,SDL_GPU_SHADERSTAGE_VERTEX,0,1);
  hudFragmentShader_=GpuShaderLoader::load(device_,fragmentPath,SDL_GPU_SHADERSTAGE_FRAGMENT,0,0);
  if(!hudVertexShader_||!hudFragmentShader_) return false;
  return createHudPipeline(hudVertexShader_,hudFragmentShader_);
@@ -395,10 +397,40 @@ void GpuRenderBackend::drawIndexed(const BufferPair& mesh,bool transparent) {
  SDL_DrawGPUIndexedPrimitives(renderPass_,mesh.indexCount,1,0,0,0);
 }
 
-void GpuRenderBackend::drawHud() {
- if(!renderPass_||!hudPipeline_) return;
+void GpuRenderBackend::drawHud(int selectedSlot) {
+ if(!renderPass_||!hudPipeline_||!commandBuffer_) return;
+ struct HudData {
+  float rects[12][4]{};
+  float colors[12][4]{};
+  Uint32 rectCount{};
+  float padding[3]{};
+ } data;
+
+ auto add=[&](float cx,float cy,float hx,float hy,float r,float g,float b,float a) {
+  if(data.rectCount>=12) return;
+  const Uint32 i=data.rectCount++;
+  data.rects[i][0]=cx;data.rects[i][1]=cy;data.rects[i][2]=hx;data.rects[i][3]=hy;
+  data.colors[i][0]=r;data.colors[i][1]=g;data.colors[i][2]=b;data.colors[i][3]=a;
+ };
+
+ // Crosshair.
+ add(0,0,0.010f,0.0015f,1,1,1,1);
+ add(0,0,0.0015f,0.016f,1,1,1,1);
+
+ // Five-slot hotbar. Coordinates are NDC so the HUD remains resolution independent.
+ const float slotHalfX=0.033f,slotHalfY=0.052f,gap=0.006f;
+ const float total=10*slotHalfX+4*gap;
+ const float first=-total*.5f+slotHalfX;
+ const float itemColors[5][3]={{.47f,.47f,.49f},{.47f,.33f,.20f},{.35f,.61f,.27f},{.82f,.76f,.53f},{.24f,.47f,.82f}};
+ for(int i=0;i<5;++i) {
+  const float x=first+i*(2*slotHalfX+gap);
+  const bool selected=i==selectedSlot;
+  add(x,-.89f,slotHalfX,slotHalfY,selected?1.0f:.28f,selected?1.0f:.28f,selected?1.0f:.28f,.92f);
+  add(x,-.89f,slotHalfX*.78f,slotHalfY*.78f,itemColors[i][0],itemColors[i][1],itemColors[i][2],1.0f);
+ }
+ SDL_PushGPUVertexUniformData(commandBuffer_,0,&data,sizeof(data));
  SDL_BindGPUGraphicsPipeline(renderPass_,hudPipeline_);
- SDL_DrawGPUPrimitives(renderPass_,12,1,0,0);
+ SDL_DrawGPUPrimitives(renderPass_,data.rectCount*6,1,0,0);
 }
 
 void GpuRenderBackend::releaseMesh(BufferPair& mesh) {
