@@ -23,5 +23,6 @@ private:
  world::BlockId selectedBlock_{1};
   int selectedSlot_{0};
   bool running_{false};
+  bool gpuTestMode_{false};
 };
 }
