@@ -198,14 +198,15 @@ bool GpuRenderBackend::createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUSh
 
  SDL_GPUVertexBufferDescription buffer{};
  buffer.slot=0;
- buffer.pitch=7*sizeof(float);
+ buffer.pitch=11*sizeof(float);
  buffer.input_rate=SDL_GPU_VERTEXINPUTRATE_VERTEX;
 
- SDL_GPUVertexAttribute attrs[4]{};
+ SDL_GPUVertexAttribute attrs[5]{};
  attrs[0]={0,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,0};
  attrs[1]={1,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,3*sizeof(float)};
  attrs[2]={2,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT,5*sizeof(float)};
  attrs[3]={3,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT,6*sizeof(float)};
+ attrs[4]={4,0,SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,7*sizeof(float)};
 
  SDL_GPUColorTargetDescription color{};
  color.format=SDL_GetGPUSwapchainTextureFormat(device_,window_);
@@ -216,7 +217,7 @@ bool GpuRenderBackend::createWorldPipeline(SDL_GPUShader* vertexShader,SDL_GPUSh
  info.vertex_input_state.vertex_buffer_descriptions=&buffer;
  info.vertex_input_state.num_vertex_buffers=1;
  info.vertex_input_state.vertex_attributes=attrs;
- info.vertex_input_state.num_vertex_attributes=4;
+ info.vertex_input_state.num_vertex_attributes=5;
  info.primitive_type=SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
  info.rasterizer_state.fill_mode=SDL_GPU_FILLMODE_FILL;
  info.rasterizer_state.cull_mode=SDL_GPU_CULLMODE_BACK;
