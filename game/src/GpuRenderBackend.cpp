@@ -13,6 +13,8 @@ GpuRenderBackend::~GpuRenderBackend() {
  atlasSampler_=nullptr;
  atlasTexture_=nullptr;
  if(device_&&selectionPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,selectionPipeline_);
+ if(device_&&selectionVertexShader_) SDL_ReleaseGPUShader(device_,selectionVertexShader_);
+ if(device_&&selectionFragmentShader_) SDL_ReleaseGPUShader(device_,selectionFragmentShader_);
  if(device_&&hudPipeline_) SDL_ReleaseGPUGraphicsPipeline(device_,hudPipeline_);
  if(device_&&hudVertexShader_) SDL_ReleaseGPUShader(device_,hudVertexShader_);
  if(device_&&hudFragmentShader_) SDL_ReleaseGPUShader(device_,hudFragmentShader_);
@@ -24,6 +26,8 @@ GpuRenderBackend::~GpuRenderBackend() {
  transparentPipeline_=nullptr;
  hudPipeline_=nullptr;
  selectionPipeline_=nullptr;
+ selectionVertexShader_=nullptr;
+ selectionFragmentShader_=nullptr;
  hudVertexShader_=nullptr;
  hudFragmentShader_=nullptr;
  worldVertexShader_=nullptr;
@@ -60,6 +64,8 @@ bool GpuRenderBackend::initialize(SDL_Window* window) {
   projectmc::log(projectmc::LogLevel::Warning,"GPU device is ready, but compiled voxel shaders are not available yet.");
  if(!loadHudShaders())
   projectmc::log(projectmc::LogLevel::Warning,"GPU HUD shaders are not available yet.");
+ if(!loadSelectionShaders())
+  projectmc::log(projectmc::LogLevel::Warning,"GPU selection shaders are not available yet.");
  return true;
 }
 
@@ -105,6 +111,37 @@ bool GpuRenderBackend::loadHudShaders() {
  hudFragmentShader_=GpuShaderLoader::load(device_,fragmentPath,SDL_GPU_SHADERSTAGE_FRAGMENT,0,0);
  if(!hudVertexShader_||!hudFragmentShader_) return false;
  return createHudPipeline(hudVertexShader_,hudFragmentShader_);
+}
+
+bool GpuRenderBackend::loadSelectionShaders() {
+ if(!device_) return false;
+ const std::string vertexPath=shaderPath("selection.vert");
+ const std::string fragmentPath=shaderPath("selection.frag");
+ if(vertexPath.empty()||fragmentPath.empty()) return false;
+ selectionVertexShader_=GpuShaderLoader::load(device_,vertexPath,SDL_GPU_SHADERSTAGE_VERTEX,0,1);
+ selectionFragmentShader_=GpuShaderLoader::load(device_,fragmentPath,SDL_GPU_SHADERSTAGE_FRAGMENT,0,0);
+ if(!selectionVertexShader_||!selectionFragmentShader_) return false;
+ return createSelectionPipeline(selectionVertexShader_,selectionFragmentShader_);
+}
+
+bool GpuRenderBackend::createSelectionPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader) {
+ SDL_GPUColorTargetDescription color{};
+ color.format=SDL_GetGPUSwapchainTextureFormat(device_,window_);
+ SDL_GPUGraphicsPipelineCreateInfo info{};
+ info.vertex_shader=vertexShader;
+ info.fragment_shader=fragmentShader;
+ info.primitive_type=SDL_GPU_PRIMITIVETYPE_LINELIST;
+ info.rasterizer_state.fill_mode=SDL_GPU_FILLMODE_FILL;
+ info.rasterizer_state.cull_mode=SDL_GPU_CULLMODE_NONE;
+ info.depth_stencil_state.compare_op=SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
+ info.depth_stencil_state.enable_depth_test=true;
+ info.depth_stencil_state.enable_depth_write=false;
+ info.target_info.color_target_descriptions=&color;
+ info.target_info.num_color_targets=1;
+ info.target_info.depth_stencil_format=SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+ info.target_info.has_depth_stencil_target=true;
+ selectionPipeline_=SDL_CreateGPUGraphicsPipeline(device_,&info);
+ return selectionPipeline_!=nullptr;
 }
 
 bool GpuRenderBackend::createHudPipeline(SDL_GPUShader* vertexShader,SDL_GPUShader* fragmentShader) {
@@ -395,6 +432,22 @@ void GpuRenderBackend::drawIndexed(const BufferPair& mesh,bool transparent) {
  SDL_BindGPUIndexBuffer(renderPass_,&indexBinding,SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
  SDL_DrawGPUIndexedPrimitives(renderPass_,mesh.indexCount,1,0,0,0);
+}
+
+void GpuRenderBackend::drawSelection(int x,int y,int z) {
+ if(!renderPass_||!selectionPipeline_||!commandBuffer_) return;
+ struct SelectionData {
+  float viewProjection[16];
+  float blockOrigin[4];
+ } data{};
+ std::memcpy(data.viewProjection,matrices_.viewProjection.m.data(),sizeof(data.viewProjection));
+ data.blockOrigin[0]=static_cast<float>(x);
+ data.blockOrigin[1]=static_cast<float>(y);
+ data.blockOrigin[2]=static_cast<float>(z);
+ data.blockOrigin[3]=1.0f;
+ SDL_PushGPUVertexUniformData(commandBuffer_,0,&data,sizeof(data));
+ SDL_BindGPUGraphicsPipeline(renderPass_,selectionPipeline_);
+ SDL_DrawGPUPrimitives(renderPass_,24,1,0,0);
 }
 
 void GpuRenderBackend::drawHud(int selectedSlot) {
