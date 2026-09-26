@@ -77,78 +77,95 @@ void ChunkRenderer::syncMeshes(world::World& world,const TextureAtlas& atlas) {
 }
 
 void ChunkRenderer::renderWorld(SDL_Renderer* r,const world::World&,const TextureAtlas& atlas,const Camera& cam,int w,int h) {
+ struct ClipVertex { float x,y,z,u,v; };
  struct DrawFace {
-  std::array<SDL_FPoint,4> points{};
+  std::vector<SDL_Vertex> vertices;
+  std::vector<int> indices;
   float depth{};
-  float shade{};
-  AtlasRegion uv{};
-  bool transparent{};
  };
  std::vector<DrawFace> draw;
 
  const float yaw=cam.yaw*pi/180.0f;
  const float pitch=cam.pitch*pi/180.0f;
  const float forwardX=std::cos(yaw),forwardZ=std::sin(yaw);
+ const float rightX=-forwardZ,rightZ=forwardX;
  const float cp=std::cos(pitch),sp=std::sin(pitch);
+ constexpr float nearPlane=.08f;
+
+ auto toCamera=[&](const Vertex3& v,float u,float texV) {
+  const float x=v.x-cam.position.x,y=v.y-cam.position.y,z=v.z-cam.position.z;
+  const float rx=x*rightX+z*rightZ;
+  const float horizontal=x*forwardX+z*forwardZ;
+  const float ry=y*cp-horizontal*sp;
+  const float rz=y*sp+horizontal*cp;
+  return ClipVertex{rx,ry,rz,u,texV};
+ };
+
+ auto clipNear=[&](std::vector<ClipVertex> poly) {
+  std::vector<ClipVertex> out;
+  if(poly.empty()) return out;
+  ClipVertex previous=poly.back();
+  bool previousInside=previous.z>=nearPlane;
+  for(const auto& current:poly) {
+   const bool currentInside=current.z>=nearPlane;
+   if(currentInside!=previousInside) {
+    const float t=(nearPlane-previous.z)/(current.z-previous.z);
+    out.push_back({
+     previous.x+(current.x-previous.x)*t,
+     previous.y+(current.y-previous.y)*t,
+     nearPlane,
+     previous.u+(current.u-previous.u)*t,
+     previous.v+(current.v-previous.v)*t
+    });
+   }
+   if(currentInside) out.push_back(current);
+   previous=current;
+   previousInside=currentInside;
+  }
+  return out;
+ };
 
  for(const auto& [pos,mesh]:meshes_) {
-  auto collect=[&](const std::vector<Quad>& source,bool isTransparent) {
+  auto collect=[&](const std::vector<Quad>& source,bool transparent) {
    for(const auto& q:source) {
-    DrawFace face;
-    face.uv=q.uv;
-    face.shade=q.shade;
-    face.transparent=isTransparent;
+    const float uv[4][2]={{q.uv.u0,q.uv.v1},{q.uv.u0,q.uv.v0},{q.uv.u1,q.uv.v0},{q.uv.u1,q.uv.v1}};
+    std::vector<ClipVertex> polygon;
+    polygon.reserve(6);
     float depth=0.0f;
-    bool visible=true;
-
-    // The SDL prototype has no polygon clipper. If any corner crosses the
-    // near plane, skip the quad instead of projecting it into a huge polygon.
-    // The upcoming GPU renderer will clip these triangles properly.
-    for(const auto& v:q.vertices) {
-     const float x=v.x-cam.position.x;
-     const float y=v.y-cam.position.y;
-     const float z=v.z-cam.position.z;
-     const float horizontal=x*forwardX+z*forwardZ;
-     const float cameraDepth=y*sp+horizontal*cp;
-     if(cameraDepth<=0.12f) { visible=false; break; }
-    }
-    if(!visible) continue;
-
     for(int i=0;i<4;++i) {
-     const auto& v=q.vertices[i];
-     const auto p=project(v.x,v.y,v.z,cam,w,h);
-     if(!p.valid) { visible=false; break; }
-     face.points[i]={p.x,p.y};
-     const float dx=v.x-cam.position.x,dy=v.y-cam.position.y,dz=v.z-cam.position.z;
+     polygon.push_back(toCamera(q.vertices[i],uv[i][0],uv[i][1]));
+     const float dx=q.vertices[i].x-cam.position.x,dy=q.vertices[i].y-cam.position.y,dz=q.vertices[i].z-cam.position.z;
      depth+=dx*dx+dy*dy+dz*dz;
     }
-    if(!visible) continue;
+    polygon=clipNear(std::move(polygon));
+    if(polygon.size()<3) continue;
+
+    DrawFace face;
     face.depth=depth*.25f;
-    draw.push_back(face);
+    face.vertices.reserve(polygon.size());
+    const float focal=(h*.5f)/std::tan(cam.fieldOfView*pi/360.0f);
+    for(const auto& p:polygon) {
+     SDL_Vertex v{};
+     v.position={w*.5f+p.x*focal/p.z,h*.5f-p.y*focal/p.z};
+     v.tex_coord={p.u,p.v};
+     v.color={q.shade,q.shade,q.shade,transparent?.72f:1.0f};
+     face.vertices.push_back(v);
+    }
+    for(int i=1;i+1<(int)polygon.size();++i) {
+     face.indices.push_back(0);
+     face.indices.push_back(i);
+     face.indices.push_back(i+1);
+    }
+    draw.push_back(std::move(face));
    }
   };
   collect(mesh.opaque,false);
   collect(mesh.transparent,true);
  }
 
- // With no hardware depth buffer, all surfaces must participate in the same
- // painter ordering. Rendering water in a separate pass incorrectly painted
- // distant water over nearer terrain.
- std::sort(draw.begin(),draw.end(),[](const DrawFace& a,const DrawFace& b){
-  return a.depth>b.depth;
- });
-
- for(const auto& f:draw) {
-  SDL_Vertex v[4]{};
-  const float uv[4][2]={{f.uv.u0,f.uv.v1},{f.uv.u0,f.uv.v0},{f.uv.u1,f.uv.v0},{f.uv.u1,f.uv.v1}};
-  for(int i=0;i<4;++i) {
-   v[i].position=f.points[i];
-   v[i].tex_coord={uv[i][0],uv[i][1]};
-   v[i].color={f.shade,f.shade,f.shade,f.transparent?.72f:1.0f};
-  }
-  const int indices[6]={0,1,2,0,2,3};
-  SDL_RenderGeometry(r,atlas.texture(),v,4,indices,6);
- }
+ std::sort(draw.begin(),draw.end(),[](const DrawFace& a,const DrawFace& b){return a.depth>b.depth;});
+ for(const auto& face:draw)
+  SDL_RenderGeometry(r,atlas.texture(),face.vertices.data(),(int)face.vertices.size(),face.indices.data(),(int)face.indices.size());
 }
 void ChunkRenderer::renderSelection(SDL_Renderer* r,int x,int y,int z,const Camera& cam,int w,int h) {
  static constexpr int edges[12][2]={{0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}};
