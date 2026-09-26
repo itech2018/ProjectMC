@@ -106,6 +106,30 @@ bool Application::initialize(){
   projectmc::log(projectmc::LogLevel::Info,"No existing development save found; starting fresh.");
  projectmc::log(projectmc::LogLevel::Info,"Generating spawn terrain...");
  world_.generateTerrain(config_.viewDistance);
+ // Saved positions can be invalid after falling out of the world. Recover to the
+ // highest solid block near the saved X/Z (or the default spawn column).
+ auto recoverPlayer=[&](){
+  auto findSafeY=[&](int x,int z)->float{
+   for(int y=world::Chunk::Height-1;y>=0;--y){
+    const auto id=world_.getBlock(x,y,z);
+    if(id!=0&&world_.blocks().get(id).solid)return static_cast<float>(y+1);
+   }
+   return -1.0f;
+  };
+  const bool finite=std::isfinite(player_.position.x)&&std::isfinite(player_.position.y)&&std::isfinite(player_.position.z);
+  const bool verticalValid=finite&&player_.position.y>=0.0f&&player_.position.y<static_cast<float>(world::Chunk::Height+8);
+  if(verticalValid)return;
+  int x=finite?static_cast<int>(std::floor(player_.position.x)):8;
+  int z=finite?static_cast<int>(std::floor(player_.position.z)):12;
+  world_.updateStreaming(static_cast<float>(x),static_cast<float>(z),config_.viewDistance);
+  float y=findSafeY(x,z);
+  if(y<0.0f){x=8;z=12;y=findSafeY(x,z);}
+  if(y<0.0f)y=13.0f;
+  player_.position={static_cast<float>(x)+0.5f,y,static_cast<float>(z)+0.5f};
+  player_.velocity={};camera_.position=player_.eyePosition();
+  projectmc::log(projectmc::LogLevel::Warning,"Recovered player from an invalid saved position.");
+ };
+ recoverPlayer();
  // Pump the window once before grabbing the mouse. On Windows this avoids capturing
  // input while the SDL window is still being created/activated.
  SDL_PumpEvents();SDL_RaiseWindow(window_);
